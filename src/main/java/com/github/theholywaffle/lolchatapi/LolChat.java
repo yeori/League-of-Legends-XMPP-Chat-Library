@@ -31,6 +31,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 
 import org.jivesoftware.smack.Chat;
@@ -55,6 +56,8 @@ import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 import org.jivesoftware.smack.util.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.github.theholywaffle.lolchatapi.listeners.ChatListener;
 import com.github.theholywaffle.lolchatapi.listeners.ConnectionListener;
@@ -65,15 +68,16 @@ import com.github.theholywaffle.lolchatapi.riotapi.RiotApiKey;
 import com.github.theholywaffle.lolchatapi.wrapper.Friend;
 import com.github.theholywaffle.lolchatapi.wrapper.Friend.FriendStatus;
 import com.github.theholywaffle.lolchatapi.wrapper.FriendGroup;
+import com.github.yeori.lol.Login;
 
 public class LolChat {
-
+	private Logger logger = LoggerFactory.getLogger(LolChat.class);
 	private final XMPPConnection connection;
 	private final List<ChatListener> chatListeners = new ArrayList<>();
 	private final List<FriendListener> friendListeners = new ArrayList<>();
 	private final List<ConnectionListener> connectionListeners = new ArrayList<>();
-
-	private boolean stop = false;
+	
+//	private boolean stops = false;
 
 	private LolStatus status = new LolStatus();
 	private final Presence.Type type = Presence.Type.available;
@@ -86,6 +90,7 @@ public class LolChat {
 	private boolean loaded;
 	private RiotApi riotApi;
 	private final ChatServer server;
+	private ConnectionConfiguration xmppConfig;
 
 	/**
 	 * Represents a single connection to a League of Legends chatserver. Default
@@ -133,21 +138,54 @@ public class LolChat {
 	 */
 	public LolChat(ChatServer server, FriendRequestPolicy friendRequestPolicy,
 			RiotApiKey riotApiKey) {
-		this.friendRequestPolicy = friendRequestPolicy;
+		this(server, friendRequestPolicy, riotApiKey, SSLSocketFactory.getDefault());
+		
+//		FIXME delete this code later
+//		this.friendRequestPolicy = friendRequestPolicy;
+//		this.server = server;
+//		if (riotApiKey != null && server.api != null) {
+//			this.riotApi = RiotApi.build(riotApiKey, server);
+//		}
+//		Roster.setDefaultSubscriptionMode(SubscriptionMode.manual);
+//		final ConnectionConfiguration config = new ConnectionConfiguration(
+//				server.host, 5223, "pvp.net");
+//		config.setSecurityMode(ConnectionConfiguration.SecurityMode.enabled);
+//		config.setSocketFactory(SSLSocketFactory.getDefault());
+//		config.setCompressionEnabled(true);
+//		connection = new XMPPTCPConnection(config);
+//
+//		addListeners();
+	}
+
+	public LolChat(ChatServer server, 
+			FriendRequestPolicy friendRequestPolicy, 
+			RiotApiKey riotApiKey, 
+			SocketFactory sFactory) {
+		logger.debug(String.format("server : %s:%s", server.host, server.port));
+		logger.debug(String.format("friend-request-mode : %s", friendRequestPolicy));
+		logger.debug(String.format("riot-key : %s", riotApiKey.getKey()));
+		
+		this.friendRequestPolicy = FriendRequestPolicy.MANUAL;
 		this.server = server;
 		if (riotApiKey != null && server.api != null) {
 			this.riotApi = RiotApi.build(riotApiKey, server);
 		}
+		
 		Roster.setDefaultSubscriptionMode(SubscriptionMode.manual);
-		final ConnectionConfiguration config = new ConnectionConfiguration(
-				server.host, 5223, "pvp.net");
-		config.setSecurityMode(ConnectionConfiguration.SecurityMode.enabled);
-		config.setSocketFactory(SSLSocketFactory.getDefault());
-		config.setCompressionEnabled(true);
-		connection = new XMPPTCPConnection(config);
-
+		xmppConfig = new ConnectionConfiguration(
+				server.host, 
+				server.port, 
+				"pvp.net");
+		
+		xmppConfig.setSecurityMode(ConnectionConfiguration.SecurityMode.enabled);
+		xmppConfig.setSocketFactory(SSLSocketFactory.getDefault());
+		xmppConfig.setCompressionEnabled(true);
+		connection = new XMPPTCPConnection(xmppConfig);
+		
 		addListeners();
 	}
+	
+	
 
 	/**
 	 * Adds a ChatListener that listens to messages from all your friends.
@@ -308,55 +346,65 @@ public class LolChat {
 		friendListeners.add(friendListener);
 	}
 
-	private void addListeners() {
+	private void addDefaultConnectionListener() {
 		connection
-				.addConnectionListener(new org.jivesoftware.smack.ConnectionListener() {
+		.addConnectionListener(new org.jivesoftware.smack.ConnectionListener() {
 
-					public void authenticated(XMPPConnection connection) {
-						// do nothing
-					}
+			public void authenticated(XMPPConnection connection) {
+				logger.debug(String.format("IS AUTHENTICATED : %s", connection.isAuthenticated()));
+			}
 
-					public void connected(XMPPConnection connection) {
-						// do nothing
-					}
+			public void connected(XMPPConnection connection) {
+				logger.debug(String.format("IS CONNECTED : %s", connection.isConnected()));
+			}
 
-					public void connectionClosed() {
-						for (final ConnectionListener l : connectionListeners) {
-							l.connectionClosed();
-						}
-					}
+			public void connectionClosed() {
+				logger.debug("CONNECTION CLOSED, notifying to listeners");
+				for (final ConnectionListener l : connectionListeners) {
+					l.connectionClosed();
+				}
+			}
 
-					public void connectionClosedOnError(Exception e) {
-						for (final ConnectionListener l : connectionListeners) {
-							l.connectionClosedOnError(e);
-						}
-					}
+			public void connectionClosedOnError(Exception e) {
+				logger.debug("CONNECTION CLOSED because of error", e);
+				for (final ConnectionListener l : connectionListeners) {
+					l.connectionClosedOnError(e);
+				}
+			}
 
-					public void reconnectingIn(int seconds) {
-						for (final ConnectionListener l : connectionListeners) {
-							l.reconnectingIn(seconds);
-						}
-					}
+			public void reconnectingIn(int seconds) {
+				logger.debug("RECONNECTING IN %d secs", seconds);
+				for (final ConnectionListener l : connectionListeners) {
+					l.reconnectingIn(seconds);
+				}
+			}
 
-					public void reconnectionFailed(Exception e) {
-						for (final ConnectionListener l : connectionListeners) {
-							l.reconnectionFailed(e);
-						}
-					}
+			public void reconnectionFailed(Exception e) {
+				logger.debug("RECONNECTION FAILED. cause", e);
+				for (final ConnectionListener l : connectionListeners) {
+					l.reconnectionFailed(e);
+				}
+			}
 
-					public void reconnectionSuccessful() {
-						updateStatus();
-						for (final ConnectionListener l : connectionListeners) {
-							l.reconnectionSuccessful();
-						}
-					}
-				});
-		connection.getRoster().addRosterListener(
-				leagueRosterListener = new LeagueRosterListener(this,
-						connection));
+			public void reconnectionSuccessful() {
+				logger.debug("RECONNECTION SUCCESS");
+				updateStatus();
+				for (final ConnectionListener l : connectionListeners) {
+					l.reconnectionSuccessful();
+				}
+			}
+		});
+	}
+	
+	private void addDefaultRosterListener() {
+		leagueRosterListener = new LeagueRosterListener(this,connection);
+		connection.getRoster().addRosterListener(leagueRosterListener);
+	}
+	
+	private void addDefaultPacketListener() {
+		leaguePacketListener = new LeaguePacketListener(this, connection);
 		connection.addPacketListener(
-				leaguePacketListener = new LeaguePacketListener(this,
-						connection), new PacketFilter() {
+				leaguePacketListener, new PacketFilter() {
 					public boolean accept(Packet packet) {
 						if (packet instanceof Presence) {
 							final Presence presence = (Presence) packet;
@@ -374,11 +422,18 @@ public class LolChat {
 						return false;
 					}
 				});
+	}
+	
+	private void addOnetoOneChatListener() {
 		ChatManager.getInstanceFor(connection).addChatListener(
 				new ChatManagerListener() {
 
 					@Override
 					public void chatCreated(Chat c, boolean locally) {
+						logger.debug(String.format(
+								"[CHAT CREATED] participant : %s, local : %s",
+								c.getParticipant(), locally));
+
 						final Friend friend = getFriendById(c.getParticipant());
 						if (friend != null) {
 							c.addMessageListener(new MessageListener() {
@@ -397,6 +452,13 @@ public class LolChat {
 					}
 				});
 	}
+	private void addListeners() {
+		addDefaultConnectionListener();
+		addDefaultRosterListener();
+		addDefaultPacketListener();
+		
+		addOnetoOneChatListener();
+	}
 
 	/**
 	 * Disconnects from chatserver and releases all resources.
@@ -408,7 +470,7 @@ public class LolChat {
 		} catch (final NotConnectedException e) {
 			e.printStackTrace();
 		}
-		stop = true;
+//		stop = true;
 	}
 
 	/**
@@ -457,10 +519,11 @@ public class LolChat {
 	public Friend getFriendById(String xmppAddress) {
 		final RosterEntry entry = connection.getRoster().getEntry(
 				StringUtils.parseBareAddress(xmppAddress));
-		if (entry != null) {
-			return new Friend(this, connection, entry);
+		Friend friend = new Friend(this, connection, entry);
+		if (entry == null) {
+			logger.debug("fail to find friend : %s", xmppAddress);
 		}
-		return null;
+		return friend;
 	}
 
 	/**
@@ -749,18 +812,18 @@ public class LolChat {
 
 		// Wait for roster to be loaded
 		if (connection.isAuthenticated()) {
-			new Thread(new Runnable() {
-
-				@Override
-				public void run() {
-					while (!stop) {
-						try {
-							Thread.sleep(500);
-						} catch (final InterruptedException ignored) {
-						}
-					}
-				}
-			}).start();
+//			new Thread(new Runnable() {
+//
+//				@Override
+//				public void run() {
+//					while (!stop) {
+//						try {
+//							Thread.sleep(500);
+//						} catch (final InterruptedException ignored) {
+//						}
+//					}
+//				}
+//			}).start();
 			final long startTime = System.currentTimeMillis();
 			while (!leagueRosterListener.isLoaded()
 					&& (System.currentTimeMillis() - startTime) < 60_000) {
@@ -773,6 +836,11 @@ public class LolChat {
 			return true;
 		}
 		return false;
+	}
+	
+	public XMPPConnection login(Login loginInfo) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 	/**
@@ -884,6 +952,10 @@ public class LolChat {
 		} catch (final NotConnectedException e) {
 			e.printStackTrace();
 		}
+	}
+
+	public XMPPConnection getConnection() {
+		return connection;
 	}
 
 }

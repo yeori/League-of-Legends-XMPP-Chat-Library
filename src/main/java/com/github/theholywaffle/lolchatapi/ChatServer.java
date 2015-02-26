@@ -112,11 +112,20 @@ public enum ChatServer {
 
 	public String api;
 	public String host;
+	public int port;
 	public LoginMethod loginMethod;
 
 	ChatServer(String host, String api, LoginMethod loginMethod) {
 		this.host = host;
 		this.api = api;
+		this.port = 5223;
+		this.loginMethod = loginMethod;
+	}
+	
+	ChatServer(String host, int port, String api, LoginMethod loginMethod) {
+		this.host = host;
+		this.api = api;
+		this.port = port;
 		this.loginMethod = loginMethod;
 	}
 

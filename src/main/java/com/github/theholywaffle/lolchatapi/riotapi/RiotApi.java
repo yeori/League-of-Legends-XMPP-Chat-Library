@@ -37,18 +37,21 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.net.ssl.HttpsURLConnection;
 
 import org.jivesoftware.smack.util.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.github.theholywaffle.lolchatapi.ChatServer;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
 public class RiotApi {
-
-	private static Map<String, RiotApi> instances = new HashMap<>();
+	private Logger logger = LoggerFactory.getLogger(RiotApi.class);
+	private static Map<String, RiotApi> instances = new ConcurrentHashMap<>();
 
 	public static RiotApi build(RiotApiKey riotApiKey, ChatServer server) {
 		RiotApi api = instances.get(riotApiKey.getKey());
@@ -75,9 +78,11 @@ public class RiotApi {
 	public String getName(String userId) throws IOException {
 		final String summonerId = StringUtils.parseName(userId).replace("sum",
 				"");
-		final String response = request("https://" + server.api + "/api/lol/"
+		final String requestUrl = "https://" + server.api + "/api/lol/"
 				+ server.getApiRegion() + "/v1.4/summoner/" + summonerId + "/name?api_key="
-				+ riotApiKey.getKey());
+				+ riotApiKey.getKey();
+		logger.debug(String.format("REQ-URL : %s", requestUrl));
+		final String response = request(requestUrl);
 		final Map<String, String> summoner = new GsonBuilder().create()
 				.fromJson(response, new TypeToken<Map<String, String>>() {
 				}.getType());
