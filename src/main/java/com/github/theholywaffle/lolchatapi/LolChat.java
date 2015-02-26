@@ -39,6 +39,7 @@ import org.jivesoftware.smack.ChatManager;
 import org.jivesoftware.smack.ChatManagerListener;
 import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.MessageListener;
+import org.jivesoftware.smack.PacketListener;
 import org.jivesoftware.smack.Roster;
 import org.jivesoftware.smack.Roster.SubscriptionMode;
 import org.jivesoftware.smack.RosterEntry;
@@ -51,11 +52,17 @@ import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.XMPPException.XMPPErrorException;
 import org.jivesoftware.smack.filter.PacketFilter;
+import org.jivesoftware.smack.packet.Bind;
+import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.Presence;
+import org.jivesoftware.smack.packet.Session;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 import org.jivesoftware.smack.util.StringUtils;
+import org.jivesoftware.smackx.muc.InvitationListener;
+import org.jivesoftware.smackx.muc.MultiUserChat;
+import org.jivesoftware.smackx.muc.packet.MUCUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,6 +76,8 @@ import com.github.theholywaffle.lolchatapi.wrapper.Friend;
 import com.github.theholywaffle.lolchatapi.wrapper.Friend.FriendStatus;
 import com.github.theholywaffle.lolchatapi.wrapper.FriendGroup;
 import com.github.yeori.lol.Login;
+import com.github.yeori.lol.listeners.MucListener;
+import com.github.yeori.lol.muc.ChatRoom;
 import com.github.yeori.lol.riotapi.DefaultRiotApiFactory;
 import com.github.yeori.lol.riotapi.RiotApiFactory;
 
@@ -76,7 +85,7 @@ public class LolChat {
 	private Logger logger = LoggerFactory.getLogger(LolChat.class);
 	private final XMPPConnection connection;
 	private final List<ChatListener> one2oneChatListeners = new ArrayList<>();
-	private final List<ChatListener> mucChatListeners = new ArrayList<>();
+	private final List<MucListener> mucChatListeners = new ArrayList<>();
 	
 	private final List<FriendListener> friendListeners = new ArrayList<>();
 	private final List<ConnectionListener> connectionListeners = new ArrayList<>();
@@ -87,9 +96,20 @@ public class LolChat {
 	private final Presence.Type type = Presence.Type.available;
 	private Presence.Mode mode = Presence.Mode.chat;
 	private boolean invisible = false;
+	
+	/**
+	 * full qualified jabberID
+	 * ex) sum33072235@pvp.net/xiff
+	 */
+	private String jabberID;
+	
+	/**
+	 * summer name(unique nickname in the game)
+	 */
 	private String name = null;
 	private LeagueRosterListener leagueRosterListener;
 	private LeaguePacketListener leaguePacketListener;
+	private MucHandle mucHandler;
 	private FriendRequestPolicy friendRequestPolicy;
 	private boolean loaded;
 	private RiotApi riotApi;
@@ -176,7 +196,221 @@ public class LolChat {
 		addListeners();
 	}
 	
+	private void addListeners() {
+		installInitConnListener();
+		installDefaultPacketListener();
+		installDefaultConnectionListener();
+		installDefaultRosterListener();
+		
+		installOnetoOneChatListener();
+		installMucChatListener();
+	}
 	
+	private void installInitConnListener() {
+		InitialConnListener icl = new InitialConnListener();
+		PacketFilter every = new PacketFilter() {
+			
+			@Override
+			public boolean accept(Packet packet) {
+				logger.debug("cls:" + packet.getClass());
+				return true;
+			}
+		};
+		connection.addPacketSendingListener(icl, every);
+		connection.addPacketListener(icl, every);
+		
+	}
+	
+	class InitialConnListener implements PacketListener {
+		
+		@Override
+		public void processPacket(Packet packet) throws NotConnectedException {
+			Class<?> packetClass = packet.getClass();
+			
+			if ( packetClass == Bind.class) {
+				Bind bnd = Bind.class.cast(packet);
+				logger.debug(String.format("[BOUND RESOURCE] %s : %s", bnd.getType(), bnd.toXML().toString()));
+				if ( bnd.getType() == IQ.Type.RESULT){
+					logger.debug("JID : " + bnd.getJid());
+				}
+				
+			} else if ( packetClass == Session.class) {
+				IQ iq = IQ.class.cast(packet);
+				logger.debug("[IQ] " + iq.toXML().toString());
+				if ( iq.getType() == IQ.Type.RESULT){
+					logger.debug("SUMMONER NAME : " + iq.getChildElementXML());
+				}
+			}
+			
+			else {
+				logger.debug( String.format("[PACKET] %s", packet.toXML().toString()) );				
+			}
+			
+		}
+		
+	}
+	private void installDefaultPacketListener() {
+		leaguePacketListener = new LeaguePacketListener(this, connection);
+		connection.addPacketListener(
+				leaguePacketListener, new PacketFilter() {
+					public boolean accept(Packet packet) {
+						if (packet instanceof Presence) {
+							final Presence presence = (Presence) packet;
+							if (presence.getType().equals(
+									Presence.Type.subscribed)
+									|| presence.getType().equals(
+											Presence.Type.subscribe)
+									|| presence.getType().equals(
+											Presence.Type.unsubscribed)
+									|| presence.getType().equals(
+											Presence.Type.unsubscribe)) {
+								return true;
+							}
+						}
+						return false;
+					}
+				});
+	}
+	
+	private void installDefaultConnectionListener() {
+		connection
+		.addConnectionListener(new org.jivesoftware.smack.ConnectionListener() {
+			
+			public void authenticated(XMPPConnection connection) {
+				logger.debug(String.format("IS AUTHENTICATED : %s", connection.isAuthenticated()));
+			}
+			
+			public void connected(XMPPConnection connection) {
+				logger.debug(String.format("IS CONNECTED : %s", connection.isConnected()));
+			}
+			
+			public void connectionClosed() {
+				logger.debug("CONNECTION CLOSED, notifying to listeners");
+				for (final ConnectionListener l : connectionListeners) {
+					l.connectionClosed();
+				}
+			}
+			
+			public void connectionClosedOnError(Exception e) {
+				logger.debug("CONNECTION CLOSED because of error", e);
+				for (final ConnectionListener l : connectionListeners) {
+					l.connectionClosedOnError(e);
+				}
+			}
+			
+			public void reconnectingIn(int seconds) {
+				logger.debug("RECONNECTING IN %d secs", seconds);
+				for (final ConnectionListener l : connectionListeners) {
+					l.reconnectingIn(seconds);
+				}
+			}
+			
+			public void reconnectionFailed(Exception e) {
+				logger.debug("RECONNECTION FAILED. cause", e);
+				for (final ConnectionListener l : connectionListeners) {
+					l.reconnectionFailed(e);
+				}
+			}
+			
+			public void reconnectionSuccessful() {
+				logger.debug("RECONNECTION SUCCESS");
+				updateStatus();
+				for (final ConnectionListener l : connectionListeners) {
+					l.reconnectionSuccessful();
+				}
+			}
+		});
+	}
+	private void installDefaultRosterListener() {
+		leagueRosterListener = new LeagueRosterListener(this,connection);
+		connection.getRoster().addRosterListener(leagueRosterListener);
+	}
+	
+
+	
+	private void installOnetoOneChatListener() {
+		ChatManagerListener one2oneListener = new ChatManagerListener() {
+
+			@Override
+			public void chatCreated(final Chat c, final boolean locally) {
+
+				final Friend friend = getFriendById(c.getParticipant());
+				if (friend != null) {
+					c.addMessageListener(new MessageListener() {
+
+						@Override
+						public void processMessage(Chat chat,
+								Message msg) {
+							if (msg.getType() == Message.Type.chat) {
+								logger.debug(String.format(
+										"[1:1 CHAT CREATED] participant : %s, local : %s",
+										c.getParticipant(), locally));
+								for (final ChatListener c : one2oneChatListeners) {
+									c.onMessage(friend, msg.getBody());
+								}
+							}
+						}
+					});
+				}
+			}
+		};
+		
+		ChatManager.getInstanceFor(connection)
+					.addChatListener(one2oneListener);
+	}
+	
+	private void installMucChatListener() {
+		mucHandler = new MucHandle(this);
+		MultiUserChat.addInvitationListener(connection, mucHandler);
+	}
+	
+	static class MucHandle implements InvitationListener, PacketListener {
+		Logger logger = LoggerFactory.getLogger(MucHandle.class);
+		List<MucListener> listeners ;
+		LolChat chatApi;
+		public MucHandle(LolChat chat) {
+			chatApi = chat;
+			listeners = chat.mucChatListeners;
+		}
+		
+		@Override
+		public void invitationReceived(XMPPConnection conn, String room,
+				String inviter, String reason, String password, Message message) {
+			logger.debug (String.format("[INVITE]inviter:%s, room:%s,reason:%s, pass:%s, msg:%s", 
+					inviter, room, reason, password, message));
+			ArrayList<MucListener> cloned = new ArrayList<>(listeners);
+			
+			for( MucListener mL : cloned) {
+				try {
+					boolean acceptInvt = mL.invitationReceived(chatApi, room, inviter, password);	
+					if ( acceptInvt) {
+						MultiUserChat muc = new MultiUserChat(conn, room);
+						muc.addMessageListener(this);
+						muc.join(chatApi.getName(true));
+						Message msg = muc.createMessage();
+						msg.setBody("JOIN TO THE CHAT ROOM");
+						muc.sendMessage(msg);
+					}
+				} catch (Exception e) {
+					logger.error("unexpected exception", e);
+				}
+			}
+		}
+
+		@Override
+		public void processPacket(Packet packet) throws NotConnectedException {
+			// TODO Auto-generated method stub
+			logger.debug(String.format("[PACKET] from : %s, \n        detail : %s", packet.getFrom(), packet.toString()));
+			String room = packet.getFrom();
+			String me = "sum33072235@pvp.net/xiff";
+			
+			ArrayList<MucListener> cloned = new ArrayList<>(listeners);
+			for ( MucListener mL : cloned) {
+				
+//				mL.onMucMessage(room, )
+			}
+		}
+	}
 
 	/**
 	 * Adds a ChatListener that listens to messages from all your friends.
@@ -186,6 +420,14 @@ public class LolChat {
 	 */
 	public void addChatListener(ChatListener chatListener) {
 		one2oneChatListeners.add(chatListener);
+	}
+	
+	/**
+	 * Adds a multi-user-chat listener
+	 * @param mucListener
+	 */
+	public void addMultiUserChatListener ( MucListener mucListener) {
+		mucChatListeners.add(mucListener);
 	}
 
 	/**
@@ -338,154 +580,7 @@ public class LolChat {
 	}
 
 	
-	private void addListeners() {
-		installDefaultConnectionListener();
-		installDefaultRosterListener();
-		installDefaultPacketListener();
-		
-		installOnetoOneChatListener();
-		installMucChatListener();
-	}
 	
-	private void installDefaultConnectionListener() {
-		connection
-		.addConnectionListener(new org.jivesoftware.smack.ConnectionListener() {
-			
-			public void authenticated(XMPPConnection connection) {
-				logger.debug(String.format("IS AUTHENTICATED : %s", connection.isAuthenticated()));
-			}
-			
-			public void connected(XMPPConnection connection) {
-				logger.debug(String.format("IS CONNECTED : %s", connection.isConnected()));
-			}
-			
-			public void connectionClosed() {
-				logger.debug("CONNECTION CLOSED, notifying to listeners");
-				for (final ConnectionListener l : connectionListeners) {
-					l.connectionClosed();
-				}
-			}
-			
-			public void connectionClosedOnError(Exception e) {
-				logger.debug("CONNECTION CLOSED because of error", e);
-				for (final ConnectionListener l : connectionListeners) {
-					l.connectionClosedOnError(e);
-				}
-			}
-			
-			public void reconnectingIn(int seconds) {
-				logger.debug("RECONNECTING IN %d secs", seconds);
-				for (final ConnectionListener l : connectionListeners) {
-					l.reconnectingIn(seconds);
-				}
-			}
-			
-			public void reconnectionFailed(Exception e) {
-				logger.debug("RECONNECTION FAILED. cause", e);
-				for (final ConnectionListener l : connectionListeners) {
-					l.reconnectionFailed(e);
-				}
-			}
-			
-			public void reconnectionSuccessful() {
-				logger.debug("RECONNECTION SUCCESS");
-				updateStatus();
-				for (final ConnectionListener l : connectionListeners) {
-					l.reconnectionSuccessful();
-				}
-			}
-		});
-	}
-	private void installDefaultRosterListener() {
-		leagueRosterListener = new LeagueRosterListener(this,connection);
-		connection.getRoster().addRosterListener(leagueRosterListener);
-	}
-	
-	private void installDefaultPacketListener() {
-		leaguePacketListener = new LeaguePacketListener(this, connection);
-		connection.addPacketListener(
-				leaguePacketListener, new PacketFilter() {
-					public boolean accept(Packet packet) {
-						if (packet instanceof Presence) {
-							final Presence presence = (Presence) packet;
-							if (presence.getType().equals(
-									Presence.Type.subscribed)
-									|| presence.getType().equals(
-											Presence.Type.subscribe)
-									|| presence.getType().equals(
-											Presence.Type.unsubscribed)
-									|| presence.getType().equals(
-											Presence.Type.unsubscribe)) {
-								return true;
-							}
-						}
-						return false;
-					}
-				});
-	}
-	
-	private void installOnetoOneChatListener() {
-		ChatManagerListener one2oneListener = new ChatManagerListener() {
-
-			@Override
-			public void chatCreated(Chat c, boolean locally) {
-				logger.debug(String.format(
-						"[1:1 CHAT CREATED] participant : %s, local : %s",
-						c.getParticipant(), locally));
-
-				final Friend friend = getFriendById(c.getParticipant());
-				if (friend != null) {
-					c.addMessageListener(new MessageListener() {
-
-						@Override
-						public void processMessage(Chat chat,
-								Message msg) {
-							for (final ChatListener c : one2oneChatListeners) {
-								if (msg.getType() == Message.Type.chat) {
-									c.onMessage(friend, msg.getBody());
-								}
-							}
-						}
-					});
-				}
-			}
-		};
-		
-		ChatManager.getInstanceFor(connection)
-					.addChatListener(one2oneListener);
-	}
-	
-	private void installMucChatListener() {
-		ChatManagerListener mucListener = new ChatManagerListener() {
-
-			@Override
-			public void chatCreated(Chat c, boolean locally) {
-				logger.debug(String.format(
-						"[MUC-CHAT CREATED] participant : %s, local : %s",
-						c.getParticipant(), locally));
-
-				final Friend friend = getFriendById(c.getParticipant());
-				if (friend != null) {
-					c.addMessageListener(new MessageListener() {
-
-						@Override
-						public void processMessage(Chat chat,
-								Message msg) {
-							for (final ChatListener c : mucChatListeners) {
-								if (msg.getType() == Message.Type.groupchat) {
-									logger.debug("[MUC:%s]%s" + chat.getParticipant());
-									c.onMessage(friend, msg.getBody());
-								}
-							}
-						}
-					});
-				}
-			}
-		};
-		
-		ChatManager.getInstanceFor(connection)
-					.addChatListener(mucListener);
-	}
 
 	/**
 	 * Disconnects from chatserver and releases all resources.
@@ -546,10 +641,10 @@ public class LolChat {
 	public Friend getFriendById(String xmppAddress) {
 		final RosterEntry entry = connection.getRoster().getEntry(
 				StringUtils.parseBareAddress(xmppAddress));
-		Friend friend = new Friend(this, connection, entry);
 		if (entry == null) {
-			logger.debug("fail to find friend : %s", xmppAddress);
+			logger.debug(String.format("fail to find friend : %s", xmppAddress));
 		}
+		Friend friend = new Friend(this, connection, entry);
 		return friend;
 	}
 
@@ -983,6 +1078,17 @@ public class LolChat {
 
 	public XMPPConnection getConnection() {
 		return connection;
+	}
+	
+	/**
+	 * 
+	 * @param roomName
+	 * @return
+	 */
+	public ChatRoom prepareChatRoom(String roomName) {
+		MultiUserChat muc = new MultiUserChat(connection, roomName);
+		ChatRoom room = new ChatRoom(muc);
+		return null;
 	}
 
 }

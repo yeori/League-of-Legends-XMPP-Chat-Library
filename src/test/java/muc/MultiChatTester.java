@@ -40,6 +40,8 @@ import com.github.theholywaffle.lolchatapi.listeners.ChatListener;
 import com.github.theholywaffle.lolchatapi.listeners.FriendListener;
 import com.github.theholywaffle.lolchatapi.riotapi.RiotApiKey;
 import com.github.theholywaffle.lolchatapi.wrapper.Friend;
+import com.github.yeori.lol.listeners.MucListener;
+import com.github.yeori.lol.muc.ChatRoom;
 import com.github.yeori.lol.riotapi.DefaultRiotApiFactory;
 
 public class MultiChatTester {
@@ -64,6 +66,7 @@ public class MultiChatTester {
 				SSLSocketFactory.getDefault(),
 				new DefaultRiotApiFactory());
 		api.addFriendListener(new FriendHandler());
+		api.addMultiUserChatListener(new MucHandler());
 		if ( api.login(username, password, true) ) {
 			
 			api.addChatListener(new LolChatHandler());
@@ -79,6 +82,24 @@ public class MultiChatTester {
 		}
 	}
 	
+	static class MucHandler implements MucListener {
+
+		@Override
+		public boolean invitationReceived(LolChat chatApi, String roomName, String inviter,
+				String password) {
+			logger.info(String.format("[INVITATION] room:%s, inviter:%s, password:%s", roomName, inviter, password));
+			ChatRoom room = chatApi.prepareChatRoom(roomName);
+			return true;
+		}
+
+		@Override
+		public void onMucMessage(Friend sender, String body) {
+			
+			logger.info(sender + ", " + body);
+			
+		}
+		
+	}
 	static class FriendHandler implements FriendListener{
 
 		@Override
