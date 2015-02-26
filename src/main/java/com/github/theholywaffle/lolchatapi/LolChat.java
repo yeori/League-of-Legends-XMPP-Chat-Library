@@ -69,11 +69,15 @@ import com.github.theholywaffle.lolchatapi.wrapper.Friend;
 import com.github.theholywaffle.lolchatapi.wrapper.Friend.FriendStatus;
 import com.github.theholywaffle.lolchatapi.wrapper.FriendGroup;
 import com.github.yeori.lol.Login;
+import com.github.yeori.lol.riotapi.DefaultRiotApiFactory;
+import com.github.yeori.lol.riotapi.RiotApiFactory;
 
 public class LolChat {
 	private Logger logger = LoggerFactory.getLogger(LolChat.class);
 	private final XMPPConnection connection;
-	private final List<ChatListener> chatListeners = new ArrayList<>();
+	private final List<ChatListener> one2oneChatListeners = new ArrayList<>();
+	private final List<ChatListener> mucChatListeners = new ArrayList<>();
+	
 	private final List<FriendListener> friendListeners = new ArrayList<>();
 	private final List<ConnectionListener> connectionListeners = new ArrayList<>();
 	
@@ -138,38 +142,25 @@ public class LolChat {
 	 */
 	public LolChat(ChatServer server, FriendRequestPolicy friendRequestPolicy,
 			RiotApiKey riotApiKey) {
-		this(server, friendRequestPolicy, riotApiKey, SSLSocketFactory.getDefault());
-		
-//		FIXME delete this code later
-//		this.friendRequestPolicy = friendRequestPolicy;
-//		this.server = server;
-//		if (riotApiKey != null && server.api != null) {
-//			this.riotApi = RiotApi.build(riotApiKey, server);
-//		}
-//		Roster.setDefaultSubscriptionMode(SubscriptionMode.manual);
-//		final ConnectionConfiguration config = new ConnectionConfiguration(
-//				server.host, 5223, "pvp.net");
-//		config.setSecurityMode(ConnectionConfiguration.SecurityMode.enabled);
-//		config.setSocketFactory(SSLSocketFactory.getDefault());
-//		config.setCompressionEnabled(true);
-//		connection = new XMPPTCPConnection(config);
-//
-//		addListeners();
+		this(server, 
+				friendRequestPolicy, 
+				riotApiKey, 
+				SSLSocketFactory.getDefault()
+				, new DefaultRiotApiFactory());
 	}
 
 	public LolChat(ChatServer server, 
 			FriendRequestPolicy friendRequestPolicy, 
 			RiotApiKey riotApiKey, 
-			SocketFactory sFactory) {
+			SocketFactory sFactory,
+			RiotApiFactory riotApiFactory) {
 		logger.debug(String.format("server : %s:%s", server.host, server.port));
 		logger.debug(String.format("friend-request-mode : %s", friendRequestPolicy));
 		logger.debug(String.format("riot-key : %s", riotApiKey.getKey()));
 		
 		this.friendRequestPolicy = FriendRequestPolicy.MANUAL;
 		this.server = server;
-		if (riotApiKey != null && server.api != null) {
-			this.riotApi = RiotApi.build(riotApiKey, server);
-		}
+		this.riotApi = riotApiFactory.createRiotApi(riotApiKey, server);
 		
 		Roster.setDefaultSubscriptionMode(SubscriptionMode.manual);
 		xmppConfig = new ConnectionConfiguration(
@@ -194,7 +185,7 @@ public class LolChat {
 	 *            The ChatListener
 	 */
 	public void addChatListener(ChatListener chatListener) {
-		chatListeners.add(chatListener);
+		one2oneChatListeners.add(chatListener);
 	}
 
 	/**
@@ -346,46 +337,56 @@ public class LolChat {
 		friendListeners.add(friendListener);
 	}
 
-	private void addDefaultConnectionListener() {
+	
+	private void addListeners() {
+		installDefaultConnectionListener();
+		installDefaultRosterListener();
+		installDefaultPacketListener();
+		
+		installOnetoOneChatListener();
+		installMucChatListener();
+	}
+	
+	private void installDefaultConnectionListener() {
 		connection
 		.addConnectionListener(new org.jivesoftware.smack.ConnectionListener() {
-
+			
 			public void authenticated(XMPPConnection connection) {
 				logger.debug(String.format("IS AUTHENTICATED : %s", connection.isAuthenticated()));
 			}
-
+			
 			public void connected(XMPPConnection connection) {
 				logger.debug(String.format("IS CONNECTED : %s", connection.isConnected()));
 			}
-
+			
 			public void connectionClosed() {
 				logger.debug("CONNECTION CLOSED, notifying to listeners");
 				for (final ConnectionListener l : connectionListeners) {
 					l.connectionClosed();
 				}
 			}
-
+			
 			public void connectionClosedOnError(Exception e) {
 				logger.debug("CONNECTION CLOSED because of error", e);
 				for (final ConnectionListener l : connectionListeners) {
 					l.connectionClosedOnError(e);
 				}
 			}
-
+			
 			public void reconnectingIn(int seconds) {
 				logger.debug("RECONNECTING IN %d secs", seconds);
 				for (final ConnectionListener l : connectionListeners) {
 					l.reconnectingIn(seconds);
 				}
 			}
-
+			
 			public void reconnectionFailed(Exception e) {
 				logger.debug("RECONNECTION FAILED. cause", e);
 				for (final ConnectionListener l : connectionListeners) {
 					l.reconnectionFailed(e);
 				}
 			}
-
+			
 			public void reconnectionSuccessful() {
 				logger.debug("RECONNECTION SUCCESS");
 				updateStatus();
@@ -395,13 +396,12 @@ public class LolChat {
 			}
 		});
 	}
-	
-	private void addDefaultRosterListener() {
+	private void installDefaultRosterListener() {
 		leagueRosterListener = new LeagueRosterListener(this,connection);
 		connection.getRoster().addRosterListener(leagueRosterListener);
 	}
 	
-	private void addDefaultPacketListener() {
+	private void installDefaultPacketListener() {
 		leaguePacketListener = new LeaguePacketListener(this, connection);
 		connection.addPacketListener(
 				leaguePacketListener, new PacketFilter() {
@@ -424,40 +424,67 @@ public class LolChat {
 				});
 	}
 	
-	private void addOnetoOneChatListener() {
-		ChatManager.getInstanceFor(connection).addChatListener(
-				new ChatManagerListener() {
+	private void installOnetoOneChatListener() {
+		ChatManagerListener one2oneListener = new ChatManagerListener() {
 
-					@Override
-					public void chatCreated(Chat c, boolean locally) {
-						logger.debug(String.format(
-								"[CHAT CREATED] participant : %s, local : %s",
-								c.getParticipant(), locally));
+			@Override
+			public void chatCreated(Chat c, boolean locally) {
+				logger.debug(String.format(
+						"[1:1 CHAT CREATED] participant : %s, local : %s",
+						c.getParticipant(), locally));
 
-						final Friend friend = getFriendById(c.getParticipant());
-						if (friend != null) {
-							c.addMessageListener(new MessageListener() {
+				final Friend friend = getFriendById(c.getParticipant());
+				if (friend != null) {
+					c.addMessageListener(new MessageListener() {
 
-								@Override
-								public void processMessage(Chat chat,
-										Message msg) {
-									for (final ChatListener c : chatListeners) {
-										if (msg.getType() == Message.Type.chat) {
-											c.onMessage(friend, msg.getBody());
-										}
-									}
+						@Override
+						public void processMessage(Chat chat,
+								Message msg) {
+							for (final ChatListener c : one2oneChatListeners) {
+								if (msg.getType() == Message.Type.chat) {
+									c.onMessage(friend, msg.getBody());
 								}
-							});
+							}
 						}
-					}
-				});
-	}
-	private void addListeners() {
-		addDefaultConnectionListener();
-		addDefaultRosterListener();
-		addDefaultPacketListener();
+					});
+				}
+			}
+		};
 		
-		addOnetoOneChatListener();
+		ChatManager.getInstanceFor(connection)
+					.addChatListener(one2oneListener);
+	}
+	
+	private void installMucChatListener() {
+		ChatManagerListener mucListener = new ChatManagerListener() {
+
+			@Override
+			public void chatCreated(Chat c, boolean locally) {
+				logger.debug(String.format(
+						"[MUC-CHAT CREATED] participant : %s, local : %s",
+						c.getParticipant(), locally));
+
+				final Friend friend = getFriendById(c.getParticipant());
+				if (friend != null) {
+					c.addMessageListener(new MessageListener() {
+
+						@Override
+						public void processMessage(Chat chat,
+								Message msg) {
+							for (final ChatListener c : mucChatListeners) {
+								if (msg.getType() == Message.Type.groupchat) {
+									logger.debug("[MUC:%s]%s" + chat.getParticipant());
+									c.onMessage(friend, msg.getBody());
+								}
+							}
+						}
+					});
+				}
+			}
+		};
+		
+		ChatManager.getInstanceFor(connection)
+					.addChatListener(mucListener);
 	}
 
 	/**
@@ -479,7 +506,7 @@ public class LolChat {
 	 * @return List of ChatListeners
 	 */
 	public List<ChatListener> getChatListeners() {
-		return chatListeners;
+		return one2oneChatListeners;
 	}
 
 	/**
@@ -850,7 +877,7 @@ public class LolChat {
 	 *            The ChatListener that you want to remove
 	 */
 	public void removeChatListener(ChatListener chatListener) {
-		chatListeners.remove(chatListener);
+		one2oneChatListeners.remove(chatListener);
 	}
 
 	/**
