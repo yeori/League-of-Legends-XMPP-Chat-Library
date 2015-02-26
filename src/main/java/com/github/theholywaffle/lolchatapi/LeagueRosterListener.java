@@ -35,13 +35,16 @@ import org.jivesoftware.smack.RosterListener;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.util.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.github.theholywaffle.lolchatapi.listeners.FriendListener;
 import com.github.theholywaffle.lolchatapi.wrapper.Friend;
 import com.github.theholywaffle.lolchatapi.wrapper.Friend.FriendStatus;
 
 public class LeagueRosterListener implements RosterListener {
-
+	private Logger logger = LoggerFactory.getLogger(LeagueRosterListener.class);
+	
 	private final HashMap<String, Presence.Type> typeUsers = new HashMap<>();
 	private final HashMap<String, Presence.Mode> modeUsers = new HashMap<>();
 	private final HashMap<String, LolStatus> statusUsers = new HashMap<>();
@@ -58,6 +61,7 @@ public class LeagueRosterListener implements RosterListener {
 
 	public void entriesAdded(Collection<String> e) {
 		for (final String s : e) {
+			logger.debug(String.format("[ADDED ENTRY]%s", s));
 			final Friend f = api.getFriendById(s);
 			if (!added && !api.isLoaded()) {
 				if (f.isOnline()) {
@@ -81,6 +85,7 @@ public class LeagueRosterListener implements RosterListener {
 
 	public void entriesDeleted(Collection<String> entries) {
 		for (final String s : entries) {
+			logger.debug(String.format("[DELETED ENTRY]%s", s));
 			friendStatusUsers.put(s, null);
 			for (final FriendListener l : api.getFriendListeners()) {
 				String name = null;
@@ -98,6 +103,7 @@ public class LeagueRosterListener implements RosterListener {
 
 	public void entriesUpdated(Collection<String> e) {
 		for (final String s : e) {
+			logger.debug(String.format("[UPDATED ENTRY]%s", s));
 			final Friend f = api.getFriendById(s);
 			final FriendStatus previous = friendStatusUsers.get(s);
 			if (((previous != null && previous != FriendStatus.MUTUAL_FRIENDS)
@@ -121,6 +127,7 @@ public class LeagueRosterListener implements RosterListener {
 
 	public void presenceChanged(Presence p) {
 		String from = p.getFrom();
+		logger.debug(String.format("[PRESENCE CHAGED] %s", p.toXML().toString()));
 		if (from != null) {
 			p = connection.getRoster().getPresence(p.getFrom());
 			from = StringUtils.parseBareAddress(from);
