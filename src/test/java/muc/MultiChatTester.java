@@ -35,10 +35,12 @@ import org.slf4j.LoggerFactory;
 import com.github.theholywaffle.lolchatapi.ChatServer;
 import com.github.theholywaffle.lolchatapi.FriendRequestPolicy;
 import com.github.theholywaffle.lolchatapi.LolChat;
+import com.github.theholywaffle.lolchatapi.LolStatus;
 import com.github.theholywaffle.lolchatapi.listeners.ChatListener;
+import com.github.theholywaffle.lolchatapi.listeners.FriendListener;
 import com.github.theholywaffle.lolchatapi.riotapi.RiotApiKey;
 import com.github.theholywaffle.lolchatapi.wrapper.Friend;
-import com.github.yeori.lol.Login;
+import com.github.yeori.lol.riotapi.DefaultRiotApiFactory;
 
 public class MultiChatTester {
 	static Logger logger = LoggerFactory.getLogger(MultiChatTester.class);
@@ -59,8 +61,9 @@ public class MultiChatTester {
 		LolChat api = new LolChat( ChatServer.KR, 
 				FriendRequestPolicy.MANUAL,
 				new RiotApiKey(key), 
-				SSLSocketFactory.getDefault());
-		
+				SSLSocketFactory.getDefault(),
+				new DefaultRiotApiFactory());
+		api.addFriendListener(new FriendHandler());
 		if ( api.login(username, password, true) ) {
 			
 			api.addChatListener(new LolChatHandler());
@@ -74,8 +77,58 @@ public class MultiChatTester {
 		} else {
 			logger.error("fail to login");
 		}
-		
-		
+	}
+	
+	static class FriendHandler implements FriendListener{
+
+		@Override
+		public void onFriendAvailable(Friend friend) {
+			logger.info(String.format("[%s][AVAILABLE] 대화 가능",	friend.getName()));
+			LolStatus ls = friend.getStatus();
+			logger.debug(String.format("[MOBILE:%s]", ls.getMobile()));
+			logger.debug(String.format("[status:%s]", ls.getStatusMessage()));
+		}
+
+		@Override
+		public void onFriendAway(Friend friend) {
+			logger.info(String.format("[%s][AWAY] 로그아웃했음", friend.getName()));
+			
+		}
+
+		@Override
+		public void onFriendBusy(Friend friend) {
+			logger.info(String.format("[%s][BUSY] 바쁨으로 상태변경", friend.getName()));
+		}
+
+		@Override
+		public void onFriendJoin(Friend friend) {
+			logger.info(String.format("[%s][JOIN] 로그인했음", friend.getName()));
+			
+		}
+
+		@Override
+		public void onFriendLeave(Friend friend) {
+			logger.info(String.format("[%s][LEAVE] 나갔음", friend.getName()));
+			
+		}
+
+		@Override
+		public void onFriendStatusChange(Friend friend) {
+			logger.info(String.format("[%s][STATUS CHANGED] 상태변경", friend.getName()));
+			
+			
+		}
+
+		@Override
+		public void onNewFriend(Friend friend) {
+			logger.info(String.format("[%s][NEW] 새친구", friend.getName()));
+			
+		}
+
+		@Override
+		public void onRemoveFriend(String userId, String name) {
+			logger.info(String.format("[ID:%s, NAME:%s][REMOVED] 친구 삭제",userId, name));
+		}
 	}
 	
 	static class LolChatHandler implements ChatListener {
@@ -96,7 +149,6 @@ public class MultiChatTester {
 			XMPPError error = packet.getError();
 			
 			String fqClassName = packet.getClass().getName();
-//			logger.debug(String.format("[type]%s", fqClassName.substring(fqClassName.lastIndexOf('.')+1)));
 			if ( error != null ) {
 				logger.debug("error", error);
 			}
@@ -108,7 +160,6 @@ public class MultiChatTester {
 
 		@Override
 		public void processPacket(Packet packet) throws NotConnectedException {
-			// TODO Auto-generated method stub
 			String from = packet.getFrom();
 			String to = packet.getTo();
 			String id = packet.getPacketID();
