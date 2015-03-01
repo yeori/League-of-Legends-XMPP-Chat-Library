@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import com.github.theholywaffle.lolchatapi.ChatServer;
 import com.github.theholywaffle.lolchatapi.FriendRequestPolicy;
 import com.github.theholywaffle.lolchatapi.LolChat;
+import com.github.theholywaffle.lolchatapi.riotapi.RiotApiException;
 import com.github.theholywaffle.lolchatapi.riotapi.RiotApiKey;
 import com.github.yeori.lol.riotapi.DefaultRiotApiFactory;
 
@@ -65,14 +66,14 @@ public class PubChatRoomTester {
 	private static void joinTheRoom(LolChat api, String roomName) {
 		// TODO Auto-generated method stub
 //		String encRoomName = "pu~" + "403926033d001b5279df37cbbe5287b7c7c267fa";// lol 방
-//		String encRoomName = "pu~" + "22a7dafc0309c94227145e2d077da24c8816645e";// 듀오 방
-		String encRoomName = "pu~" + "aeab28925114716138085003c23bde7d2e75d094";// 아리 방
+		String encRoomName = "pu~" + "22a7dafc0309c94227145e2d077da24c8816645e";// 듀오 방
+//		String encRoomName = "pu~" + "aeab28925114716138085003c23bde7d2e75d094";// 아리 방
 		
 		String roomId = encRoomName + "@lvl.pvp.net";
 		XMPPConnection conn = api.getConnection();
 		MultiUserChat muc = new MultiUserChat(conn, roomId);
 		try {
-			String name = api.getName(true);
+			String name = api.getName(false);
 			muc.join(name);
 			muc.addMessageListener(new MessageHandle());
 			
@@ -81,7 +82,7 @@ public class PubChatRoomTester {
 				@Override
 				public void processPacket(Packet packet) throws NotConnectedException {
 					Presence psc = Presence.class.cast(packet);
-					logger.debug(String.format("[참여자] %s(%s)", psc.getFrom(), psc.getType()) );
+					logger.debug(String.format("[참여자] %s(%s), XML :%s", psc.getFrom(), psc.getType(), packet.toXML()) );
 					
 				}
 			});
@@ -102,6 +103,9 @@ public class PubChatRoomTester {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (XMPPException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (RiotApiException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}

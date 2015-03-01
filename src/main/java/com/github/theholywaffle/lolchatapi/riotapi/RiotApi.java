@@ -114,9 +114,9 @@ public class RiotApi {
 		connection.setRequestMethod("GET");
 		connection.setInstanceFollowRedirects(false);
 
+		int responseCode = connection.getResponseCode();
 		if (connection.getResponseCode() != 200) {
-			throw new IOException("Response code is "
-					+ connection.getResponseCode() + " instead of 200.");
+			throw makeException(responseCode);
 		}
 
 		final InputStream is = connection.getInputStream();
@@ -129,6 +129,45 @@ public class RiotApi {
 		}
 		connection.disconnect();
 		return response.toString();
+	}
+
+	final private RiotApiException makeException(int responseCode) {
+		String reason = "Unknown Reason";
+		
+		/* ses https://developer.riotgames.com/api/methods#!/960/3296
+		 * 
+		 * HTTP Status Code	 Reason
+		 * ---------------- -------------------------------------------------
+		 *  400	             Bad request
+		 *  401	             Unauthorized
+		 *  404	             No summoner data found for any specified inputs
+		 *  429	             Rate limit exceeded
+		 *  500	             Internal server error
+		 *  503	             Service unavailable
+		 * ---------------- -------------------------------------------------
+		 */
+		switch (responseCode) {
+		case 400:
+			reason = "Bad request";
+			break;
+		case 401:
+			reason = "Unauthorized";
+			break;
+		case 404:
+			reason = "No summoner data found for any specified inputs";
+			break;
+		case 429:
+			reason = "Rate limit exceeded";
+			break;
+		case 500:
+			reason = "Internal server error";
+			break;
+		case 503:
+			reason = "Service unavailable";
+		default:
+			break;
+		}
+		return new RiotApiException(responseCode, reason, null);
 	}
 
 }
