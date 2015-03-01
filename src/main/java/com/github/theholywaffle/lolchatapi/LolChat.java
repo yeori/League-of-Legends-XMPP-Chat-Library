@@ -59,10 +59,10 @@ import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.Session;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
+import org.jivesoftware.smack.util.PacketParserUtils.UnparsedResultIQ;
 import org.jivesoftware.smack.util.StringUtils;
 import org.jivesoftware.smackx.muc.InvitationListener;
 import org.jivesoftware.smackx.muc.MultiUserChat;
-import org.jivesoftware.smackx.muc.packet.MUCUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,6 +71,7 @@ import com.github.theholywaffle.lolchatapi.listeners.ConnectionListener;
 import com.github.theholywaffle.lolchatapi.listeners.FriendListener;
 import com.github.theholywaffle.lolchatapi.listeners.FriendRequestListener;
 import com.github.theholywaffle.lolchatapi.riotapi.RiotApi;
+import com.github.theholywaffle.lolchatapi.riotapi.RiotApiException;
 import com.github.theholywaffle.lolchatapi.riotapi.RiotApiKey;
 import com.github.theholywaffle.lolchatapi.wrapper.Friend;
 import com.github.theholywaffle.lolchatapi.wrapper.Friend.FriendStatus;
@@ -212,7 +213,7 @@ public class LolChat {
 			
 			@Override
 			public boolean accept(Packet packet) {
-				logger.debug("cls:" + packet.getClass());
+//				logger.debug("cls:" + packet.getClass());
 				return true;
 			}
 		};
@@ -229,16 +230,25 @@ public class LolChat {
 			
 			if ( packetClass == Bind.class) {
 				Bind bnd = Bind.class.cast(packet);
-				logger.debug(String.format("[BOUND RESOURCE] %s : %s", bnd.getType(), bnd.toXML().toString()));
+				logger.debug(String.format("[BIND] %s : %s", bnd.getType(), bnd.toXML().toString()));
 				if ( bnd.getType() == IQ.Type.RESULT){
 					logger.debug("JID : " + bnd.getJid());
+					jabberID = bnd.getJid();
 				}
 				
 			} else if ( packetClass == Session.class) {
-				IQ iq = IQ.class.cast(packet);
-				logger.debug("[IQ] " + iq.toXML().toString());
+				Session iq = Session.class.cast(packet);
+				logger.debug("[SESSION] " + iq.toXML().toString());
 				if ( iq.getType() == IQ.Type.RESULT){
-					logger.debug("SUMMONER NAME : " + iq.getChildElementXML());
+					logger.debug("SESSION : " + iq.getChildElementXML());
+				}
+			} else if ( packetClass == UnparsedResultIQ.class) {
+				UnparsedResultIQ uiq = UnparsedResultIQ.class.cast(packet);
+				if ( uiq.getType() == IQ.Type.RESULT){
+					String xml = uiq.getChildElementXML();
+					String name = xml.substring(0, xml.indexOf('<'));
+					logger.debug("SUMMONER NAME : " + name);
+					LolChat.this.name = name;
 				}
 			}
 			
@@ -764,7 +774,7 @@ public class LolChat {
 	 *            True will force to update the name even when it is not null.
 	 * @return The name of this user or null if something went wrong.
 	 */
-	public String getName(boolean forcedUpdate) {
+	public String getName(boolean forcedUpdate) throws RiotApiException {
 		if ((name == null || forcedUpdate) && getRiotApi() != null) {
 			try {
 				name = getRiotApi().getName(connection.getUser());
