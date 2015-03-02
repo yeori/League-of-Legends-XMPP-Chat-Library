@@ -1,4 +1,4 @@
-package com.github.yeori.lol.riotapi;
+package com.github.yeori.lol.muc;
 
 /*
  * #%L
@@ -27,18 +27,36 @@ package com.github.yeori.lol.riotapi;
  */
 
 
-import com.github.theholywaffle.lolchatapi.ChatServer;
-import com.github.theholywaffle.lolchatapi.riotapi.RiotApi;
-import com.github.theholywaffle.lolchatapi.riotapi.RiotApiKey;
+public class Talker {
 
-public interface RiotApiFactory {
+	private String summonerId;
+	private String nickName;
+	private ChatRoom room;
 	
-	/**
-	 * create riot api instance
-	 * @param riotKey - you development key issued from https://developer.riotgames.com/ 
-	 * @param server - server info(host, api url etc)
-	 * @return
-	 */
-	RiotApi createRiotApi(RiotApiKey riotKey, ChatServer server);
+	Talker(String summonerId, String nickName, ChatRoom room) {
+		super();
+		this.summonerId = summonerId;
+		this.nickName = nickName;
+		this.room = room;
+	}
 
+	public String getSummonerId() {
+		return summonerId;
+	}
+
+	public String getNickName() {
+		return nickName;
+	}
+
+	public ChatRoom getRoom() {
+		return room;
+	}
+
+	@Override
+	public String toString() {
+		return "Talker [summoner=" + summonerId + ", nick=" + nickName
+				+ " at " + room + "]";
+	}
+	
+	
 }

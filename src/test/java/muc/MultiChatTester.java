@@ -1,5 +1,32 @@
 package muc;
 
+/*
+ * #%L
+ * League of Legends XMPP Chat Library
+ * %%
+ * Copyright (C) 2014 - 2015 Bert De Geyter
+ * %%
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ * #L%
+ */
+
+
 
 
 import java.io.IOException;
@@ -7,26 +34,19 @@ import java.io.InputStream;
 import java.util.Properties;
 import java.util.Scanner;
 
-import javax.net.SocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 
-import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.PacketListener;
 import org.jivesoftware.smack.Roster;
-import org.jivesoftware.smack.SmackException;
 import org.jivesoftware.smack.SmackException.NoResponseException;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.XMPPConnection;
-import org.jivesoftware.smack.Roster.SubscriptionMode;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.XMPPException.XMPPErrorException;
 import org.jivesoftware.smack.filter.PacketFilter;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Packet;
-import org.jivesoftware.smack.packet.Presence;
-import org.jivesoftware.smack.packet.Presence.Type;
 import org.jivesoftware.smack.packet.XMPPError;
-import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 import org.jivesoftware.smackx.muc.InvitationListener;
 import org.jivesoftware.smackx.muc.MultiUserChat;
 import org.slf4j.Logger;
@@ -41,7 +61,7 @@ import com.github.theholywaffle.lolchatapi.listeners.FriendListener;
 import com.github.theholywaffle.lolchatapi.riotapi.RiotApiKey;
 import com.github.theholywaffle.lolchatapi.wrapper.Friend;
 import com.github.yeori.lol.listeners.MucListener;
-import com.github.yeori.lol.muc.ChatRoom;
+import com.github.yeori.lol.muc.Talker;
 import com.github.yeori.lol.riotapi.DefaultRiotApiFactory;
 
 public class MultiChatTester {
@@ -88,12 +108,12 @@ public class MultiChatTester {
 		public boolean invitationReceived(LolChat chatApi, String roomName, String inviter,
 				String password) {
 			logger.info(String.format("[INVITATION] room:%s, inviter:%s, password:%s", roomName, inviter, password));
-			ChatRoom room = chatApi.prepareChatRoom(roomName);
+//			ChatRoom room = chatApi.prepareChatRoom(roomName);
 			return true;
 		}
 
 		@Override
-		public void onMucMessage(Friend sender, String body) {
+		public void onMucMessage(Talker sender, String body) {
 			
 			logger.info(sender + ", " + body);
 			

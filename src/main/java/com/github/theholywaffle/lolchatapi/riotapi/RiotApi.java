@@ -73,7 +73,13 @@ public class RiotApi {
 			rateLimiters.add(rateLimiter);
 		}
 	}
-
+	
+	/**
+	 * finds lol player name(maybe unique nickname) using summoner id.  
+	 * @param userId
+	 * @return
+	 * @throws IOException
+	 */
 	public String getName(String userId) throws IOException {
 		final String summonerId = StringUtils.parseName(userId).replace("sum",
 				"");
@@ -88,11 +94,20 @@ public class RiotApi {
 		return summoner.get(summonerId);
 	}
 
+	/**
+	 * finds summoner id using lol player name(maybe unique nickname)
+	 * @param unique nickname used in the lol game
+	 * @return summoner id
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
 	public long getSummonerId(String name) throws IOException,
 			URISyntaxException {
 		final URI uri = new URI("https", server.api, "/api/lol/" + server.getApiRegion()
 				+ "/v1.4/summoner/by-name/" + name, "api_key="
 				+ riotApiKey.getKey(), null);
+		
+		logger.debug("[URL] " + uri.toURL());
 		final String response = request(uri.toASCIIString());
 		final Map<String, SummonerDto> summoner = new GsonBuilder().create()
 				.fromJson(response, new TypeToken<Map<String, SummonerDto>>() {

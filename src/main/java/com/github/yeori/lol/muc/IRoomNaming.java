@@ -1,4 +1,4 @@
-package com.github.yeori.lol.riotapi;
+package com.github.yeori.lol.muc;
 
 /*
  * #%L
@@ -27,18 +27,10 @@ package com.github.yeori.lol.riotapi;
  */
 
 
-import com.github.theholywaffle.lolchatapi.ChatServer;
-import com.github.theholywaffle.lolchatapi.riotapi.RiotApi;
-import com.github.theholywaffle.lolchatapi.riotapi.RiotApiKey;
+import java.security.NoSuchAlgorithmException;
 
-public interface RiotApiFactory {
-	
-	/**
-	 * create riot api instance
-	 * @param riotKey - you development key issued from https://developer.riotgames.com/ 
-	 * @param server - server info(host, api url etc)
-	 * @return
-	 */
-	RiotApi createRiotApi(RiotApiKey riotKey, ChatServer server);
+public interface IRoomNaming {
+
+	public abstract String translate(String plainText);
 
 }

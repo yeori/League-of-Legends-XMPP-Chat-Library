@@ -29,6 +29,7 @@ package com.github.theholywaffle.lolchatapi;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import javax.net.SocketFactory;
@@ -79,6 +80,9 @@ import com.github.theholywaffle.lolchatapi.wrapper.FriendGroup;
 import com.github.yeori.lol.Login;
 import com.github.yeori.lol.listeners.MucListener;
 import com.github.yeori.lol.muc.ChatRoom;
+import com.github.yeori.lol.muc.IRoomNaming;
+import com.github.yeori.lol.muc.MucException;
+import com.github.yeori.lol.muc.RoomNamings;
 import com.github.yeori.lol.riotapi.DefaultRiotApiFactory;
 import com.github.yeori.lol.riotapi.RiotApiFactory;
 
@@ -108,6 +112,8 @@ public class LolChat {
 	 * summer name(unique nickname in the game)
 	 */
 	private String name = null;
+	
+	private IRoomNaming roomNaming;
 	private LeagueRosterListener leagueRosterListener;
 	private LeaguePacketListener leaguePacketListener;
 	private MucHandle mucHandler;
@@ -166,15 +172,37 @@ public class LolChat {
 		this(server, 
 				friendRequestPolicy, 
 				riotApiKey, 
-				SSLSocketFactory.getDefault()
-				, new DefaultRiotApiFactory());
+				SSLSocketFactory.getDefault(),
+				new DefaultRiotApiFactory() ,
+				RoomNamings.createPublicRoomNaming());
+	}
+	
+	public LolChat(ChatServer server, FriendRequestPolicy friendRequestPolicy,
+			RiotApiKey riotApiKey, SocketFactory default1,
+			DefaultRiotApiFactory defaultRiotApiFactory) {
+		this(server, 
+				friendRequestPolicy, 
+				riotApiKey, 
+				SSLSocketFactory.getDefault(),
+				new DefaultRiotApiFactory() ,
+				RoomNamings.createPublicRoomNaming());
 	}
 
+	/**
+	 * 
+	 * @param server
+	 * @param friendRequestPolicy
+	 * @param riotApiKey
+	 * @param sFactory
+	 * @param riotApiFactory
+	 * @param roomNaming
+	 */
 	public LolChat(ChatServer server, 
 			FriendRequestPolicy friendRequestPolicy, 
 			RiotApiKey riotApiKey, 
 			SocketFactory sFactory,
-			RiotApiFactory riotApiFactory) {
+			RiotApiFactory riotApiFactory,
+			IRoomNaming roomNaming) {
 		logger.debug(String.format("server : %s:%s", server.host, server.port));
 		logger.debug(String.format("friend-request-mode : %s", friendRequestPolicy));
 		logger.debug(String.format("riot-key : %s", riotApiKey.getKey()));
@@ -194,9 +222,10 @@ public class LolChat {
 		xmppConfig.setCompressionEnabled(true);
 		connection = new XMPPTCPConnection(xmppConfig);
 		
+		this.roomNaming = roomNaming;
 		addListeners();
 	}
-	
+
 	private void addListeners() {
 		installInitConnListener();
 		installDefaultPacketListener();
@@ -249,6 +278,8 @@ public class LolChat {
 					String name = xml.substring(0, xml.indexOf('<'));
 					logger.debug("SUMMONER NAME : " + name);
 					LolChat.this.name = name;
+//					connection.removePacketListener(this);
+//					connection.removePacketSendingListener(this);
 				}
 			}
 			
@@ -631,7 +662,8 @@ public class LolChat {
 	 * @return The first Friend that meets the conditions or null if not found.
 	 */
 	public Friend getFriend(Filter<Friend> filter) {
-		for (final RosterEntry e : connection.getRoster().getEntries()) {
+		Collection<RosterEntry> entries = connection.getRoster().getEntries();
+		for (final RosterEntry e : entries) {
 			final Friend f = new Friend(this, connection, e);
 			if (filter.accept(f)) {
 				return f;
@@ -1090,15 +1122,57 @@ public class LolChat {
 		return connection;
 	}
 	
+	public ChatRoom joinPublicRoom(final String plainRoomName){
+		return joinPublicRoom(plainRoomName, null);
+	}
+	
+	public ChatRoom joinPublicRoom(String plainRoomName, MucListener mucListener) {
+		String roomId = roomNaming.translate(plainRoomName);
+		ChatRoom chatRoom = joinRoom(roomId, mucListener);
+		return chatRoom;
+		
+	}
+	
 	/**
 	 * 
-	 * @param roomName
-	 * @return
+	 * @param roomId - full qualified jabberID of a chat room
 	 */
-	public ChatRoom prepareChatRoom(String roomName) {
-		MultiUserChat muc = new MultiUserChat(connection, roomName);
-		ChatRoom room = new ChatRoom(muc);
-		return null;
+	ChatRoom joinRoom(final String roomId) throws MucException{
+		return joinRoom(roomId, null);
 	}
+	
+	ChatRoom joinRoom(final String roomId, MucListener listener) throws MucException{
+		XMPPConnection conn = getConnection();
+		MultiUserChat muc = new MultiUserChat(conn, roomId);
+		
+		try {
+			ChatRoom room = new ChatRoom(this, muc, roomId);
+			if ( listener != null ){
+				room.addMucListener(listener);
+			}
+			
+			muc.join(name);
+			logger.debug(String.format("[MUC] joined to %s (nick:%s)", roomId, muc.getNickname()));
+			return room;
+			
+		} catch (NoResponseException e) {
+			throw new MucException("no response for joining a chat room : " + roomId , e);
+		} catch (XMPPErrorException e) {
+			throw new MucException("xmpp protocol error : " , e);
+		} catch (NotConnectedException e) {
+			throw new MucException("not connected.", e);
+		}
+	}
+//	/**
+//	 * 
+//	 * @param roomName
+//	 * @return
+//	 */
+//	public ChatRoom prepareChatRoom(String roomName) {
+//		MultiUserChat muc = new MultiUserChat(connection, roomName);
+//		ChatRoom room = new ChatRoom(muc);
+//		return null;
+//	}
+
 
 }

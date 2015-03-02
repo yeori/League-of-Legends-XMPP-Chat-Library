@@ -1,5 +1,32 @@
 package muc;
 
+/*
+ * #%L
+ * League of Legends XMPP Chat Library
+ * %%
+ * Copyright (C) 2014 - 2015 Bert De Geyter
+ * %%
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ * #L%
+ */
+
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
@@ -30,6 +57,9 @@ import com.github.theholywaffle.lolchatapi.FriendRequestPolicy;
 import com.github.theholywaffle.lolchatapi.LolChat;
 import com.github.theholywaffle.lolchatapi.riotapi.RiotApiException;
 import com.github.theholywaffle.lolchatapi.riotapi.RiotApiKey;
+import com.github.theholywaffle.lolchatapi.wrapper.Friend;
+import com.github.yeori.lol.listeners.MucListener;
+import com.github.yeori.lol.muc.Talker;
 import com.github.yeori.lol.riotapi.DefaultRiotApiFactory;
 
 public class PubChatRoomTester {
@@ -57,7 +87,22 @@ public class PubChatRoomTester {
 			XMPPConnection conn = api.getConnection();
 			new Sender(api ).startThread();
 			
-			joinTheRoom(api, "lol");
+//			joinTheRoom(api, "lol");
+			api.joinPublicRoom("lol", new MucListener() {
+				
+				@Override
+				public void onMucMessage(Talker talker, String body) {
+					logger.info(String.format("[MUC MESSAGE:%s] %s", talker.getNickName(), body));
+//					talker.getRoom().sendMessage("[echo]" + body);
+				}
+				
+				@Override
+				public boolean invitationReceived(LolChat chatApi, String roomName,
+						String inviter, String password) {
+					// TODO Auto-generated method stub
+					return false;
+				}
+			});
 		} else {
 			logger.error("fail to login");
 		}
@@ -70,6 +115,7 @@ public class PubChatRoomTester {
 //		String encRoomName = "pu~" + "aeab28925114716138085003c23bde7d2e75d094";// 아리 방
 		
 		String roomId = encRoomName + "@lvl.pvp.net";
+//		String roomId = roomNaming.translate(roomName);
 		XMPPConnection conn = api.getConnection();
 		MultiUserChat muc = new MultiUserChat(conn, roomId);
 		try {

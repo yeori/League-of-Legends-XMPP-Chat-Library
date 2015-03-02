@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.github.theholywaffle</groupId>
 	<artifactId>lolchatapi</artifactId>
-	<version>1.2.9</version>
+	<version>2.0.0</version>
 	<packaging>jar</packaging>
 
 	<name>League of Legends XMPP Chat Library</name>

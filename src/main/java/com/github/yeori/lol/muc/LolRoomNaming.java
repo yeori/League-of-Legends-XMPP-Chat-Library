@@ -1,4 +1,4 @@
-package com.github.yeori.lol.riotapi;
+package com.github.yeori.lol.muc;
 
 /*
  * #%L
@@ -27,18 +27,36 @@ package com.github.yeori.lol.riotapi;
  */
 
 
-import com.github.theholywaffle.lolchatapi.ChatServer;
-import com.github.theholywaffle.lolchatapi.riotapi.RiotApi;
-import com.github.theholywaffle.lolchatapi.riotapi.RiotApiKey;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
-public interface RiotApiFactory {
+
+public class LolRoomNaming implements IRoomNaming {
+	
+	private MessageDigest md ;
+	private String prefix ;
+	private String domain ;
+	
+	public LolRoomNaming(String prefix, String domain) throws NoSuchAlgorithmException {
+		md = MessageDigest.getInstance("SHA1");
+		this.prefix = prefix;
+		this.domain = domain;
+	}
 	
 	/**
-	 * create riot api instance
-	 * @param riotKey - you development key issued from https://developer.riotgames.com/ 
-	 * @param server - server info(host, api url etc)
-	 * @return
+	 * translates a bare(plain) room name to a lol-specific form.
+	 * 
+	 * ex) "lol" is translated to "pu~" + SHA1("lol")
 	 */
-	RiotApi createRiotApi(RiotApiKey riotKey, ChatServer server);
-
+	@Override
+	public String translate(String bareRoomName) {
+		
+		byte[] result = md.digest(bareRoomName.getBytes());
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < result.length; i++) {
+			sb.append(Integer.toString((result[i] & 0xff) + 0x100, 16)
+					.substring(1));
+		}
+		return prefix + sb.toString() +"@" + domain;
+	}
 }

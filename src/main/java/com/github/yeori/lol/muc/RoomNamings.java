@@ -1,4 +1,4 @@
-package com.github.yeori.lol.riotapi;
+package com.github.yeori.lol.muc;
 
 /*
  * #%L
@@ -27,18 +27,29 @@ package com.github.yeori.lol.riotapi;
  */
 
 
-import com.github.theholywaffle.lolchatapi.ChatServer;
-import com.github.theholywaffle.lolchatapi.riotapi.RiotApi;
-import com.github.theholywaffle.lolchatapi.riotapi.RiotApiKey;
+import java.security.NoSuchAlgorithmException;
+/**
+ * 공개채팅방과 비공개 채팅방에 접근하는 jabber id 를 생성하는 도우미 클래스
+ * @author chminseo
+ *
+ */
+public class RoomNamings {
 
-public interface RiotApiFactory {
+	private RoomNamings() {	}
 	
-	/**
-	 * create riot api instance
-	 * @param riotKey - you development key issued from https://developer.riotgames.com/ 
-	 * @param server - server info(host, api url etc)
-	 * @return
-	 */
-	RiotApi createRiotApi(RiotApiKey riotKey, ChatServer server);
-
+	public static IRoomNaming createPublicRoomNaming(){
+		try {
+			return new LolRoomNaming("pu~", "lvl.pvp.net");
+		} catch (NoSuchAlgorithmException e) {
+			throw new RuntimeException("no such algorithm : SHA1");
+		}
+	}
+	
+	public static IRoomNaming createPrivateRoomNaming() {
+		try {
+			return new LolRoomNaming("pr~", "conference.pvp.net");
+		} catch (NoSuchAlgorithmException e) {
+			throw new RuntimeException("no such algorithm : SHA1");
+		}
+	}
 }

@@ -1,4 +1,4 @@
-package com.github.yeori.lol.riotapi;
+package muc;
 
 /*
  * #%L
@@ -27,18 +27,33 @@ package com.github.yeori.lol.riotapi;
  */
 
 
-import com.github.theholywaffle.lolchatapi.ChatServer;
-import com.github.theholywaffle.lolchatapi.riotapi.RiotApi;
-import com.github.theholywaffle.lolchatapi.riotapi.RiotApiKey;
+import static org.junit.Assert.*;
 
-public interface RiotApiFactory {
-	
-	/**
-	 * create riot api instance
-	 * @param riotKey - you development key issued from https://developer.riotgames.com/ 
-	 * @param server - server info(host, api url etc)
-	 * @return
-	 */
-	RiotApi createRiotApi(RiotApiKey riotKey, ChatServer server);
+import java.security.NoSuchAlgorithmException;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
+import com.github.yeori.lol.muc.LolRoomNaming;
+import com.github.yeori.lol.muc.RoomNamings;
+
+public class TestRoomNameTranslater {
+
+	@Before
+	public void setUp() throws Exception {
+	}
+
+	@After
+	public void tearDown() throws Exception {
+	}
+
+	@Test
+	public void test() throws NoSuchAlgorithmException {
+		String bareName = "lol";
+		String encName = "pu~403926033d001b5279df37cbbe5287b7c7c267fa@lvl.pvp.net";
+		assertEquals ( encName, 
+				RoomNamings.createPublicRoomNaming().translate(bareName));
+	}
 
 }
