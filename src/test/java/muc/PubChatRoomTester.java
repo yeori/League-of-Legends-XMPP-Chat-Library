@@ -30,6 +30,7 @@ package muc;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
+import java.util.Scanner;
 
 import javax.net.ssl.SSLSocketFactory;
 
@@ -88,7 +89,8 @@ public class PubChatRoomTester {
 			new Sender(api ).startThread();
 			
 //			joinTheRoom(api, "lol");
-			api.joinPublicRoom("lol", new MucListener() {
+			String roomName =  prompt("room" );
+			api.joinPublicRoom(roomName, new MucListener() {
 				
 				@Override
 				public void onMucMessage(Talker talker, String body) {
@@ -108,6 +110,13 @@ public class PubChatRoomTester {
 		}
 	}
 	
+	private static String prompt(String label) {
+		Scanner scanner = new Scanner(System.in);
+		System.out.print ( label + " > ");
+		String input = scanner.nextLine();
+		return input;
+	}
+
 	private static void joinTheRoom(LolChat api, String roomName) {
 		// TODO Auto-generated method stub
 //		String encRoomName = "pu~" + "403926033d001b5279df37cbbe5287b7c7c267fa";// lol 방
