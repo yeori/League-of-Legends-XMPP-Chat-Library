@@ -76,6 +76,7 @@ public class ChatRoom {
 			public void processPacket(Packet packet) throws NotConnectedException {
 				// TODO 공개 채팅방 메세지 처리
 				Message msg = Message.class.cast(packet);
+				logger.info(String.format("[MUC 메세지] %s", msg));
 				notifyMessageReceived(msg);
 			}
 		});
@@ -86,7 +87,7 @@ public class ChatRoom {
 			public void processPacket(Packet packet) throws NotConnectedException {
 				// TODO Auto-generated method stub
 				Presence psc = Presence.class.cast(packet);
-				logger.debug(String.format("[PRESENCE] %s is %s",packet.getFrom(), psc.getType()) );
+				logger.info(String.format("[참여자] %s is %s",packet.getFrom(), psc.getType()) );
 				
 			}
 		});

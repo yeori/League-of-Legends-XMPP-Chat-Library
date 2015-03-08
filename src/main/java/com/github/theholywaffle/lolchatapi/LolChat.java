@@ -1128,6 +1128,7 @@ public class LolChat {
 	
 	public ChatRoom joinPublicRoom(String plainRoomName, MucListener mucListener) {
 		String roomId = roomNaming.translate(plainRoomName);
+		logger.debug(String.format("[ROOM NAME] %s => %s", plainRoomName, roomId));
 		ChatRoom chatRoom = joinRoom(roomId, mucListener);
 		return chatRoom;
 		
