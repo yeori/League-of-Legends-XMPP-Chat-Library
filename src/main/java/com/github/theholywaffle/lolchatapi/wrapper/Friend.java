@@ -304,4 +304,9 @@ public class Friend extends Wrapper<RosterEntry> {
 			e.printStackTrace();
 		}
 	}
+	
+	@Override
+	public String toString() {
+		return String.format("[%s : %s(%s)]", getName(true), getGroup().getName(), (isOnline()?"ON":"OFF") );
+	}
 }
