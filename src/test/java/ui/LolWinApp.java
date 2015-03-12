@@ -1,5 +1,7 @@
 package ui;
 
+import java.awt.Color;
+import java.awt.Component;
 import java.awt.EventQueue;
 
 import javax.swing.JFrame;
@@ -7,11 +9,10 @@ import javax.swing.JSplitPane;
 
 import java.awt.BorderLayout;
 
+import javax.swing.JLabel;
 import javax.swing.JScrollPane;
 import javax.swing.JTree;
-import javax.swing.JPanel;
-import javax.swing.JTextPane;
-import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 
 import com.github.theholywaffle.lolchatapi.ChatServer;
 import com.github.theholywaffle.lolchatapi.FriendRequestPolicy;
@@ -22,24 +23,35 @@ import com.github.theholywaffle.lolchatapi.listeners.FriendListener;
 import com.github.theholywaffle.lolchatapi.riotapi.RiotApiKey;
 import com.github.theholywaffle.lolchatapi.wrapper.Friend;
 import com.github.yeori.lol.listeners.MucListener;
+import com.github.yeori.lol.muc.Talker;
 
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.List;
+import java.util.Map;
 
 import javax.swing.JMenuBar;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
-import javax.swing.text.BadLocationException;
-import javax.swing.text.Document;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.MutableTreeNode;
+import javax.swing.tree.TreeCellRenderer;
+import javax.swing.tree.TreeNode;
+import javax.swing.tree.TreePath;
 import javax.swing.JTabbedPane;
 
-public class LolWinApp {
+import org.slf4j.LoggerFactory;
 
+import org.slf4j.Logger;
+
+public class LolWinApp {
+	private Logger logger = LoggerFactory.getLogger(LolWinApp.class);
 	private JFrame frame;
 	private JTree friendsTree;
+	final private TreeCellRenderer treeCellRenderer = new FriendTreeNodeRenderer();
 
 	private LolChat chatApi ;
 	/**
@@ -75,7 +87,7 @@ public class LolWinApp {
 				new RiotApiKey(key));
 		
 		initialize();
-		
+		installUIListeners();
 		
 	}
 	
@@ -95,7 +107,8 @@ public class LolWinApp {
 		
 		JScrollPane scrollPane = new JScrollPane();
 		splitPane.setLeftComponent(scrollPane);
-		friendsTree = new JTree();
+		friendsTree = new JTree(new FriendTreeModel());
+		friendsTree.setCellRenderer(treeCellRenderer);
 		scrollPane.setViewportView(friendsTree);
 		
 		tabbedPane = new JTabbedPane(JTabbedPane.TOP);
@@ -115,6 +128,29 @@ public class LolWinApp {
 		});
 		mnFile.add(mntmLogin);
 	}
+	
+	private void installUIListeners () {
+		friendsTree.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				int x = e.getX(), y = e.getY();
+				int row = friendsTree.getRowForLocation(x, y);
+				TreePath path = friendsTree.getPathForLocation(x, y);
+				if ( e.getClickCount() == 2 && row >= 0 ) {
+					processDbClickedTreeNode ( (DefaultMutableTreeNode)path.getLastPathComponent());
+				}
+			}
+
+		});
+	}
+	
+	private void processDbClickedTreeNode(
+			DefaultMutableTreeNode dbClickedNode) {
+		if ( dbClickedNode.getUserObject() instanceof Friend ) {
+			Friend friend = (Friend) dbClickedNode.getUserObject();
+			createChatPanel(friend);		
+		}
+	}
 
 	private void printMessage(Friend friend, String message) {
 		
@@ -127,10 +163,13 @@ public class LolWinApp {
 		
 	}
 	
-	void createChat(Friend f) {
+	void createChatPanel(Friend f) {
 		ChatPanel cp = new ChatPanel(f);
-		tabbedPane.add("[" + f.getName(true) + "]", cp);
+		tabbedPane.add("[" + f.getName() + "]", cp);
 		tabbedPane.setSelectedComponent(cp);
+		tabbedPane.setName(f.getUserId());
+		logger.debug("creating new tab for chat with {}", f.getUserId());
+		
 	}
 	private void showLoginDialog() {
 		JFrame parent = this.frame;
@@ -169,20 +208,20 @@ public class LolWinApp {
 			public void onFriendLeave(Friend friend) {
 				// TODO Auto-generated method stub
 			System.out.println("나간 친구 : " + friend);
-				
+				friendsTree.repaint();
 			}
 			
 			@Override
 			public void onFriendJoin(Friend friend) {
 				// TODO Auto-generated method stub
 				System.out.println("들어온 친구 : " + friend);
-				
+				friendsTree.repaint();
 			}
 			
 			@Override
 			public void onFriendBusy(Friend friend) {
 				// TODO Auto-generated method stub
-				
+				logger.debug("[바쁨]" + friend);
 			}
 			
 			@Override
@@ -234,7 +273,7 @@ public class LolWinApp {
 		this.chatApi.addMultiUserChatListener(new MucListener() {
 			
 			@Override
-			public void onMucMessage(Friend sender, String body) {
+			public void onMucMessage(Talker talker, String body) {
 				// TODO Auto-generated method stub
 				
 			}
@@ -248,25 +287,96 @@ public class LolWinApp {
 		});
 		
 		
-		
+		LoginDialog loginDialog = new LoginDialog();
+		loginDialog.addListener(new LoginDialog.SubmitListener() {
+			
+			@Override
+			public void formSubmitted(Map<String, String> params) {
+				processLogin(params.get("id"), params.get("pass"));
+			}
+		});
+		loginDialog.setVisible(true);
+	}
+	
+	private void processLogin(String id, String pass) {
 		if ( this.chatApi.login("gamja0225", "fhf1005") ) {
 			System.out.println("로그인 성공");
 			List<Friend> friends = this.chatApi.getFriends();
 			showFriends( friends) ;
-			createChat(chatApi.getFriendByName("양파님이시다"));
+//			createChatPanel(chatApi.getFriendByName("양파님이시다"));
 		}
-		
 	}
 
 	private void showFriends(List<Friend> friends) {
 		
-		DefaultMutableTreeNode node ;
 //		DefaultTreeModel model = new DefaultTree
-		
-		for ( Friend f : friends ) {
-			node = new DefaultMutableTreeNode(f);
-			System.out.println(f);
+		final DefaultTreeModel model = (DefaultTreeModel) friendsTree.getModel();
+		final MutableTreeNode rootNode = (MutableTreeNode) model.getRoot();
+		for ( final Friend f : friends ) {
+			f.getName(true); // initialize nickname and jid
+			final DefaultMutableTreeNode node = new DefaultMutableTreeNode(f);
+			SwingUtilities.invokeLater(new Runnable() {
+				
+				@Override
+				public void run() {
+					model.insertNodeInto(node, rootNode, 0);
+					System.out.println(f);
+					
+				}
+			});
 		}
 	}
+	
+	static class FriendTreeModel extends DefaultTreeModel {
+		
+		public FriendTreeModel() {
+			this( null, true);
+		}
+		public FriendTreeModel(TreeNode root) {
+			this(root, true);
+		}
 
+		FriendTreeModel(TreeNode root, boolean asksAllowsChildren) {
+			super(root, asksAllowsChildren);
+			if ( root == null ) {
+				setRoot(new DefaultMutableTreeNode("FRIENDS"));
+			}
+		}
+		
+		
+	}
+	
+	static class FriendTreeNodeRenderer implements TreeCellRenderer {
+
+		final private JLabel templateLabel  =new JLabel();
+		public FriendTreeNodeRenderer() {
+			templateLabel.setOpaque(true);
+		}
+		@Override
+		public Component getTreeCellRendererComponent(JTree tree, Object value,
+				boolean selected, boolean expanded, boolean leaf, int row,
+				boolean hasFocus) {
+			DefaultMutableTreeNode node = DefaultMutableTreeNode.class.cast(value);
+			
+			if ( node.isRoot()){
+				templateLabel.setText(value.toString());
+				templateLabel.setForeground(Color.MAGENTA);
+			} else {				
+				Friend f = Friend.class.cast(node.getUserObject());
+				templateLabel.setText(String.format(
+						"[%3s] %s", 
+						f.isOnline()? "ON": "OFF" ,
+								f.getName())
+						);
+				
+				Color fg = f.isOnline() ? Color.BLACK : Color.LIGHT_GRAY ;
+				templateLabel.setForeground(fg);
+			}
+			
+			Color bg = selected ? Color.CYAN : Color.WHITE;
+			templateLabel.setBackground(bg);
+				
+			return templateLabel;
+		}
+	}
 }
