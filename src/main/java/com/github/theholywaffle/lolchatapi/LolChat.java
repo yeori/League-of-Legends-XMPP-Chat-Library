@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 
 import javax.net.SocketFactory;
@@ -384,7 +385,7 @@ public class LolChat {
 								Message msg) {
 							if (msg.getType() == Message.Type.chat) {
 								logger.debug(String.format(
-										"[1:1 CHAT CREATED] participant : %s, local : %s",
+										"[1:1 CHAT MESSAGE] participant : %s, local : %s",
 										c.getParticipant(), locally));
 								for (final ChatListener c : one2oneChatListeners) {
 									c.onMessage(friend, msg.getBody());
@@ -673,6 +674,7 @@ public class LolChat {
 	}
 
 	/**
+	 * FIXME 매번 새로운 Friend 인스턴스를 생성한다.
 	 * Gets a friend based on his XMPPAddress.
 	 * 
 	 * @param xmppAddress
@@ -681,12 +683,26 @@ public class LolChat {
 	 *         not a friend of you.
 	 */
 	public Friend getFriendById(String xmppAddress) {
+		Iterator<Friend> itr = leagueRosterListener.getFriends().iterator();
+		Friend friend = null;
+		while ( itr.hasNext()) {
+			friend = itr.next();
+			if ( friend.getUserId().equals ( xmppAddress)) {
+				return friend;
+			}
+		}
+			
+		// COMMENT 친구가 없으면 재조회 하는게 맞나?
+		//         프로그램 시작 시 서버에서 친구 목록을 전부 전송해주기 때문에
+		//         다시 조회해도 없을 가능성이 높음.
+		logger.debug(String.format("no such friend : %s. retry using riot api", 
+				xmppAddress));
 		final RosterEntry entry = connection.getRoster().getEntry(
 				StringUtils.parseBareAddress(xmppAddress));
 		if (entry == null) {
 			logger.debug(String.format("fail to find friend : %s", xmppAddress));
 		}
-		Friend friend = new Friend(this, connection, entry);
+		friend = new Friend(this, connection, entry);
 		return friend;
 	}
 

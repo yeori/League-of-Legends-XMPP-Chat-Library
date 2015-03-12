@@ -27,8 +27,10 @@ package com.github.theholywaffle.lolchatapi;
  */
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 
 import org.jdom2.JDOMException;
 import org.jivesoftware.smack.RosterListener;
@@ -49,6 +51,8 @@ public class LeagueRosterListener implements RosterListener {
 	private final HashMap<String, Presence.Mode> modeUsers = new HashMap<>();
 	private final HashMap<String, LolStatus> statusUsers = new HashMap<>();
 	private final HashMap<String, FriendStatus> friendStatusUsers = new HashMap<>();
+	private final List<Friend> friends = new ArrayList<>();
+	
 	private final LolChat api;
 
 	private boolean added;
@@ -60,16 +64,19 @@ public class LeagueRosterListener implements RosterListener {
 	}
 
 	public void entriesAdded(Collection<String> e) {
-		for (final String s : e) {
-			logger.debug(String.format("[ADDED ENTRY]%s", s));
-			final Friend f = api.getFriendById(s);
+		for (final String jid : e) {
+			logger.debug(String.format("[ADDED ENTRY]%s", jid));
+			/*
+			 * 곧바로 가져오면 안되고, 없을때만 가져옴.
+			 */
+			Friend f = api.getFriendById(jid);
 			if (!added && !api.isLoaded()) {
 				if (f.isOnline()) {
-					typeUsers.put(s, Presence.Type.available);
-					modeUsers.put(s, f.getChatMode().mode);
-					statusUsers.put(s, f.getStatus());
+					typeUsers.put(jid, Presence.Type.available);
+					modeUsers.put(jid, f.getChatMode().mode);
+					statusUsers.put(jid, f.getStatus());
 				} else {
-					typeUsers.put(s, Presence.Type.unavailable);
+					typeUsers.put(jid, Presence.Type.unavailable);
 				}
 			}
 			if (f.getGroup() == null) {
@@ -77,10 +84,20 @@ public class LeagueRosterListener implements RosterListener {
 			}
 
 			if (f.getFriendStatus() != FriendStatus.MUTUAL_FRIENDS) {
-				friendStatusUsers.put(s, f.getFriendStatus());
+				friendStatusUsers.put(jid, f.getFriendStatus());
 			}
+			
+			if ( friends.contains(f) ) {
+				friends.remove(f);
+			}
+			friends.add(f);
+			
 		}
 		added = true;
+	}
+	
+	public List<Friend> getFriends() {
+		return friends;
 	}
 
 	public void entriesDeleted(Collection<String> entries) {

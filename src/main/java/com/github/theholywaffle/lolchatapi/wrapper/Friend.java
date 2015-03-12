@@ -44,18 +44,21 @@ import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.Presence.Type;
 import org.jivesoftware.smack.packet.RosterPacket.ItemStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.github.theholywaffle.lolchatapi.ChatMode;
 import com.github.theholywaffle.lolchatapi.LolChat;
 import com.github.theholywaffle.lolchatapi.LolStatus;
 import com.github.theholywaffle.lolchatapi.listeners.ChatListener;
+import com.github.theholywaffle.lolchatapi.riotapi.RiotApi;
 
 /**
  * Represents a friend of your friendlist.
  *
  */
 public class Friend extends Wrapper<RosterEntry> {
-
+	private Logger logger = LoggerFactory.getLogger(Friend.class);
 	public enum FriendStatus {
 
 		/**
@@ -84,10 +87,30 @@ public class Friend extends Wrapper<RosterEntry> {
 	private Chat chat = null;
 
 	private ChatListener listener = null;
-
+	
+	/*
+	 * bare Jabber Id
+	 */
+	private String jabberID ;
+	
+	/*
+	 * unique lol nickname
+	 */
+	private String nickName;
+	
 	public Friend(LolChat api, XMPPConnection connection, RosterEntry entry) {
 		super(api, connection, entry);
 		this.instance = this;
+		this.jabberID = entry.getUser();
+		this.nickName = entry.getName();
+		/*
+		 * private String user;
+    private String name;
+    private RosterPacket.ItemType type;
+    private RosterPacket.ItemStatus status;
+		 */
+		logger.debug(String.format("[NEW FRIEND] roster[name : %s, user : %s, type : %s, status : %s]",
+				entry.getName(), entry.getUser(), entry.getType(), entry.getStatus()) );
 	}
 
 	/**
@@ -177,7 +200,7 @@ public class Friend extends Wrapper<RosterEntry> {
 	 * @return The name of this Friend or null if no name is assigned.
 	 */
 	public String getName() {
-		return getName(false);
+		return nickName;
 	}
 
 	/**
@@ -191,10 +214,12 @@ public class Friend extends Wrapper<RosterEntry> {
 	 * @return The name of this Friend or null if no name is assigned.
 	 */
 	public String getName(boolean forcedUpdate) {
-		String name = get().getName();
-		if ((name == null || forcedUpdate) && api.getRiotApi() != null) {
+//		String name = get().getName();
+		String name = nickName;
+		RiotApi riotApi = api.getRiotApi();
+		if ((name == null || forcedUpdate) && riotApi != null) {
 			try {
-				name = api.getRiotApi().getName(getUserId());
+				name = riotApi.getName(getUserId());
 				setName(name);
 			} catch (final IOException e) {
 				e.printStackTrace();
@@ -298,15 +323,43 @@ public class Friend extends Wrapper<RosterEntry> {
 	 *            The new name for this Friend
 	 */
 	public void setName(String name) {
-		try {
-			get().setName(name);
-		} catch (final NotConnectedException e) {
-			e.printStackTrace();
-		}
+		nickName = name;
+//		try {
+//			get().setName(name);
+//		} catch (final NotConnectedException e) {
+//			e.printStackTrace();
+//		}
 	}
 	
+	
+	
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((jabberID == null) ? 0 : jabberID.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		Friend other = (Friend) obj;
+		if (jabberID == null) {
+			if (other.jabberID != null)
+				return false;
+		} else if (!jabberID.equals(other.jabberID))
+			return false;
+		return true;
+	}
+
 	@Override
 	public String toString() {
-		return String.format("[%s : %s(%s)]", getName(true), getGroup().getName(), (isOnline()?"ON":"OFF") );
+		return String.format("[%s : %s(%s)]", getName(), getGroup().getName(), (isOnline()?"ON":"OFF") );
 	}
 }

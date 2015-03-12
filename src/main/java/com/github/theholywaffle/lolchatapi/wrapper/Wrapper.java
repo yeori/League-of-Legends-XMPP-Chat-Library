@@ -30,7 +30,7 @@ import org.jivesoftware.smack.XMPPConnection;
 
 import com.github.theholywaffle.lolchatapi.LolChat;
 
-public class Wrapper<E> {
+public abstract class Wrapper<E> {
 
 	protected XMPPConnection con;
 	private final E object;
