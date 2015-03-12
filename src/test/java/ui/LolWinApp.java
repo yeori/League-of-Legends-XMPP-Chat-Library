@@ -299,11 +299,13 @@ public class LolWinApp {
 	}
 	
 	private void processLogin(String id, String pass) {
-		if ( this.chatApi.login("gamja0225", "fhf1005") ) {
+		try {
+			this.chatApi.login(id, pass);
 			System.out.println("로그인 성공");
 			List<Friend> friends = this.chatApi.getFriends();
 			showFriends( friends) ;
-//			createChatPanel(chatApi.getFriendByName("양파님이시다"));
+		} catch( Exception e) {
+			e.getCause().printStackTrace();
 		}
 	}
 

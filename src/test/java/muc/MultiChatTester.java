@@ -87,7 +87,7 @@ public class MultiChatTester {
 				new DefaultRiotApiFactory());
 		api.addFriendListener(new FriendHandler());
 		api.addMultiUserChatListener(new MucHandler());
-		if ( api.login(username, password, true) ) {
+			api.login(username, password, true) ;
 			
 			api.addChatListener(new LolChatHandler());
 			XMPPConnection conn = api.getConnection();
@@ -97,9 +97,9 @@ public class MultiChatTester {
 //			conn.addPacketSendingListener(new OutgoingPacketListener(), filter);
 //			MultiUserChat.addInvitationListener(conn, new InvitationHandler());
 			new Sender(api ).startThread();
-		} else {
-			logger.error("fail to login");
-		}
+//		} else {
+//			logger.error("fail to login");
+//		}
 	}
 	
 	static class MucHandler implements MucListener {

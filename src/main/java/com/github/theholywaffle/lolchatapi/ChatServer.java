@@ -154,7 +154,7 @@ public enum ChatServer {
 		}
 
 		public void login(XMPPConnection connection, String username,
-				String password, boolean replaceLeague) {
+				String password, boolean replaceLeague) throws LoginException{
 			method.login(connection, username, password, replaceLeague);
 		}
 	}

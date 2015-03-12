@@ -341,7 +341,7 @@ public class LolChat {
 			}
 			
 			public void reconnectingIn(int seconds) {
-				logger.debug("RECONNECTING IN %d secs", seconds);
+				logger.debug("RECONNECTING IN {} secs", seconds);
 				for (final ConnectionListener l : connectionListeners) {
 					l.reconnectingIn(seconds);
 				}
@@ -937,8 +937,8 @@ public class LolChat {
 	 * @return true if login is successful, false otherwise
 	 * @see GarenaLogin Logging in on Garena servers
 	 */
-	public boolean login(String username, String password) {
-		return login(username, password, false);
+	public void login(String username, String password) throws LolException{
+		login(username, password, false);
 	}
 
 	/**
@@ -966,56 +966,32 @@ public class LolChat {
 	 * @return true if login was succesful, false otherwise
 	 * @see GarenaLogin Logging in on Garena servers
 	 */
-	public boolean login(String username, String password, boolean replaceLeague) {
-		int attempt = 0;
+	public void login(String username, String password, boolean replaceLeague) throws LolException{
 
-		// Wait until connection is stable
-		while (!connection.isConnected()) {
-			if (attempt > 0) {
-				try {
-					Thread.sleep(attempt * 10_000);
-				} catch (final InterruptedException e) {
-				}
-			}
-			attempt++;
-			try {
-				connection.connect();
-			} catch (SmackException | IOException | XMPPException e) {
-				System.err.println("Failed to connect to \"" + server.host
-						+ "\". Retrying in " + (attempt * 10) + " seconds.");
-			}
-
+		try {
+			/*
+			 *  smack쪽에서 socket 연결을 확립하고 reader, writer용 스레드를 생성함.
+			 */
+			connection.connect();
+		} catch (SmackException | IOException | XMPPException cause) {
+			throw new ConnectionException("[CONNECTION FAILED]", cause);
 		}
-
+		
+		logger.debug("[CONNECTED] suucess to connect to lol server");
 		// Login
-		server.loginMethod.login(connection, username, password, replaceLeague);
-
-		// Wait for roster to be loaded
-		if (connection.isAuthenticated()) {
-//			new Thread(new Runnable() {
-//
-//				@Override
-//				public void run() {
-//					while (!stop) {
-//						try {
-//							Thread.sleep(500);
-//						} catch (final InterruptedException ignored) {
-//						}
-//					}
-//				}
-//			}).start();
-			final long startTime = System.currentTimeMillis();
-			while (!leagueRosterListener.isLoaded()
-					&& (System.currentTimeMillis() - startTime) < 60_000) {
-				try {
-					Thread.sleep(50);
-				} catch (final InterruptedException e) {
-				}
+		try {
+			server.loginMethod.login(connection, username, password, replaceLeague);
+			logger.debug("[LOGIN SUCCESS] login success");
+		} catch ( LoginException e) {
+			logger.debug("[LOGIN FAILRUE]");
+			try {
+				connection.disconnect();
+				logger.debug("[CONNECTION CLOSED]");
+			} catch (NotConnectedException e1) {
+				e1.printStackTrace();
 			}
-			loaded = true;
-			return true;
+			throw e;
 		}
-		return false;
 	}
 	
 	public XMPPConnection login(Login loginInfo) {

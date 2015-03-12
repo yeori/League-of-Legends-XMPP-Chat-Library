@@ -39,7 +39,7 @@ import org.jivesoftware.smack.XMPPException;
 public class RiotLogin implements ILoginMethod {
 
 	public void login(XMPPConnection connection, String username,
-			String password, boolean replaceLeague) {
+			String password, boolean replaceLeague) throws LoginException {
 		try {
 			if (replaceLeague) {
 				connection.login(username, "AIR_" + password, "xiff");
@@ -47,7 +47,8 @@ public class RiotLogin implements ILoginMethod {
 				connection.login(username, "AIR_" + password);
 			}
 		} catch (XMPPException | SmackException | IOException e) {
-			e.printStackTrace();
+			String msg = "[LOGIN FAILED]";
+			throw new LoginException(msg, e);
 		}
 	}
 

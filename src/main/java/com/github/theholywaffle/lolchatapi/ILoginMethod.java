@@ -32,6 +32,6 @@ import org.jivesoftware.smack.XMPPConnection;
 public interface ILoginMethod {
 
 	public void login(XMPPConnection connection, String username,
-			String password, boolean replaceLeague);
+			String password, boolean replaceLeague) throws LoginException;
 
 }

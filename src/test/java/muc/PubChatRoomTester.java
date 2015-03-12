@@ -82,7 +82,7 @@ public class PubChatRoomTester {
 				new DefaultRiotApiFactory());
 		api.addFriendListener(new FriendHandler());
 		api.addMultiUserChatListener(new MucHandler());
-		if ( api.login(username, password, true) ) {
+		api.login(username, password, true) ; 
 			
 			api.addChatListener(new LolChatHandler());
 			XMPPConnection conn = api.getConnection();
@@ -105,9 +105,6 @@ public class PubChatRoomTester {
 					return false;
 				}
 			});
-		} else {
-			logger.error("fail to login");
-		}
 	}
 	
 	private static String prompt(String label) {
