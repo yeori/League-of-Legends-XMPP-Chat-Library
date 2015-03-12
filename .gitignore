@@ -12,3 +12,5 @@ properties
 /releases
 /target
 /html
+/lolchat.log
+/.gitignore
