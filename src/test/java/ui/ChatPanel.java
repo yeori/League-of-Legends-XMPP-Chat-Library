@@ -2,7 +2,6 @@ package ui;
 
 import javax.swing.JPanel;
 
-import com.github.theholywaffle.lolchatapi.listeners.ChatListener;
 import com.github.theholywaffle.lolchatapi.wrapper.Friend;
 
 import java.awt.BorderLayout;
@@ -12,14 +11,18 @@ import javax.swing.JTextPane;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
 import javax.swing.text.BadLocationException;
-import javax.swing.text.Document;
 import javax.swing.text.StyledDocument;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 
-public class ChatPanel extends JPanel implements ChatListener {
+public class ChatPanel extends JPanel {
 
+	private Logger logger = LoggerFactory.getLogger(ChatPanel.class);
+	
 	private Friend chatter ;
 	private JTextField textField;
 	private JTextPane messagePane;
@@ -46,19 +49,23 @@ public class ChatPanel extends JPanel implements ChatListener {
 		add(textField, BorderLayout.SOUTH);
 		textField.setColumns(10);
 
-		chatter.setChatListener(this);
+//		chatter.setChatListener(this);
 	}
 	
 	public void sendMessage ( ) {
 		String msg = textField.getText();
 		chatter.sendMessage(msg);
+		printMessage("[나]" + msg );
 	}
 
-	@Override
-	public void onMessage(Friend friend, String message) {
+	public void printMessage(Friend friend, String message) {
+		printMessage (String.format("[%s] %s", friend.getName(), message));
+	}
+	
+	private void printMessage ( String msg) {
 		StyledDocument doc = messagePane.getStyledDocument();
 		try {
-			doc.insertString(doc.getLength(), String.format("[%s] %s\n", friend.getName(), message), null);
+			doc.insertString(doc.getLength(), msg + "\n", null);
 		} catch (BadLocationException e) {
 			e.printStackTrace();
 		}

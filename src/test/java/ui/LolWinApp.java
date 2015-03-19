@@ -23,6 +23,7 @@ import com.github.theholywaffle.lolchatapi.listeners.FriendListener;
 import com.github.theholywaffle.lolchatapi.riotapi.RiotApiKey;
 import com.github.theholywaffle.lolchatapi.wrapper.Friend;
 import com.github.yeori.lol.listeners.MucListener;
+import com.github.yeori.lol.muc.ChatRoom;
 import com.github.yeori.lol.muc.Talker;
 
 import java.awt.event.ActionListener;
@@ -61,6 +62,8 @@ public class LolWinApp {
 	private JMenuBar menuBar;
 	private JMenu mnFile;
 	private JTabbedPane tabbedPane;
+	private JMenu mnMuc;
+	private JMenuItem mntmJoin;
 	public static void main(String[] args) {
 		
 		
@@ -102,9 +105,9 @@ public class LolWinApp {
 		frame = new JFrame();
 		frame.setBounds(100, 100, 450, 300);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		
 		JSplitPane splitPane = new JSplitPane();
 		frame.getContentPane().add(splitPane, BorderLayout.CENTER);
-		
 		JScrollPane scrollPane = new JScrollPane();
 		splitPane.setLeftComponent(scrollPane);
 		friendsTree = new JTree(new FriendTreeModel());
@@ -127,6 +130,17 @@ public class LolWinApp {
 			}
 		});
 		mnFile.add(mntmLogin);
+		
+		mnMuc = new JMenu("MUC");
+		menuBar.add(mnMuc);
+		
+		mntmJoin = new JMenuItem("join...");
+		mntmJoin.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				showMucJoinDialog();
+			}
+		});
+		mnMuc.add(mntmJoin);
 	}
 	
 	private void installUIListeners () {
@@ -148,28 +162,67 @@ public class LolWinApp {
 			DefaultMutableTreeNode dbClickedNode) {
 		if ( dbClickedNode.getUserObject() instanceof Friend ) {
 			Friend friend = (Friend) dbClickedNode.getUserObject();
-			createChatPanel(friend);		
+			createChatPanel(friend);
 		}
 	}
 
 	private void printMessage(Friend friend, String message) {
+		ChatPanel chatPanel = findOpenTab(tabbedPane, friend.getName());
 		
-//		Document doc = chatArea.getDocument();
-//		try {
-//			doc.insertString(doc.getLength(), String.format("[%s] %s", friend.getName(), message), null );
-//		} catch (BadLocationException e) {
-//			e.printStackTrace();
-//		}
-		
+		if( chatPanel == null ) {
+			chatPanel = createChatPanel(friend);
+		}
+		tabbedPane.setSelectedComponent(chatPanel);
+		chatPanel.printMessage ( friend, message);		
 	}
 	
-	void createChatPanel(Friend f) {
+	private ChatPanel findOpenTab(JTabbedPane tabPane, String friendName) {
+		int size = tabPane.getTabCount();
+		ChatPanel chatPanel = null;
+		for( int i =  0 ; i < size; i++) {
+			chatPanel = (ChatPanel) tabPane.getComponentAt(i) ;
+			if ( chatPanel.getName().equals(friendName)) {
+				return chatPanel;
+			}
+		}
+		return null;
+	}
+
+	ChatPanel createChatPanel(Friend f) {
 		ChatPanel cp = new ChatPanel(f);
+		cp.setName(f.getName());
 		tabbedPane.add("[" + f.getName() + "]", cp);
 		tabbedPane.setSelectedComponent(cp);
 		tabbedPane.setName(f.getUserId());
 		logger.debug("creating new tab for chat with {}", f.getUserId());
+		return cp;
 		
+	}
+	
+	private void showMucJoinDialog() {
+		MucJoinDialog dialog = new MucJoinDialog();
+		dialog.addRoomNameListener(new MucJoinDialog.RoomNameListener() {
+			
+			@Override
+			public void roomNameInput(String roomName) {
+				ChatRoom room = chatApi.joinPublicRoom(roomName, new MucListener() {
+					
+					@Override
+					public void onMucMessage(Talker talker, String body) {
+						logger.debug("[MUC MESSAGE: {} ] {} ", talker.getNickName(), body );
+						
+					}
+					
+					@Override
+					public boolean invitationReceived(LolChat chatApi, String roomName,
+							String inviter, String password) {
+						// TODO Auto-generated method stub
+						return false;
+					}
+				});
+			}
+		});
+		dialog.setVisible(true);
 	}
 	private void showLoginDialog() {
 		JFrame parent = this.frame;
@@ -201,7 +254,7 @@ public class LolWinApp {
 			@Override
 			public void onFriendStatusChange(Friend friend) {
 				// TODO Auto-generated method stub
-				
+				System.out.println("친구 상태 변경 : " + friend);
 			}
 			
 			@Override
