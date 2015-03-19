@@ -47,7 +47,7 @@ import org.slf4j.LoggerFactory;
 
 import com.github.theholywaffle.lolchatapi.LolChat;
 import com.github.theholywaffle.lolchatapi.riotapi.RiotApi;
-import com.github.theholywaffle.lolchatapi.wrapper.Friend;
+import com.github.theholywaffle.lolchatapi.wrapper.ITalker;
 import com.github.yeori.lol.listeners.MucListener;
 /**
  * 공개 또는 비공개 채팅방을 나타내는 클래스
@@ -61,6 +61,7 @@ public class ChatRoom {
 	private String roomId ;
 	private MultiUserChat mucSource;
 	final private ArrayList<MucListener> mucListeners = new ArrayList<>();
+	final private List<ITalker> talkers = new ArrayList<>();
 	
 	public ChatRoom(LolChat lol, MultiUserChat muc, String roomId) {
 		this.lol = lol;
@@ -87,7 +88,10 @@ public class ChatRoom {
 			public void processPacket(Packet packet) throws NotConnectedException {
 				// TODO Auto-generated method stub
 				Presence psc = Presence.class.cast(packet);
-				logger.info(String.format("[참여자] %s is %s",packet.getFrom(), psc.getType()) );
+				logger.info(String.format("[참여자] %s is %s, and mode is %s",
+						packet.getFrom(), 
+						psc.getType(), 
+						psc.getMode()) );
 				
 			}
 		});
@@ -107,10 +111,6 @@ public class ChatRoom {
 	
 	void notifyMessageReceived(Message msg) {
 		
-		List<MucListener> listeners ;
-		synchronized (mucListeners) {
-			listeners = new ArrayList<>(mucListeners);
-		}
 		String fqJID = msg.getFrom();
 		String roomDomain = StringUtils.parseBareAddress(fqJID);
 		String nickName = StringUtils.parseResource(fqJID);
@@ -121,6 +121,7 @@ public class ChatRoom {
 		if ( nickName.length() > 0 ) {
 			// 맨처음 방에 들어갔을때 전달되는 메세지에는
 			// nickname 부분이 없음.
+			// FIXME 매번 api 호출해서 sumoner id 를 찾고 있다. 이 정보를 담아놓은 클래스가 필요함.
 			try {
 				summonerId = riot.getSummonerId(nickName);
 			} catch (IOException | URISyntaxException e) {
@@ -134,6 +135,11 @@ public class ChatRoom {
 		logger.debug(String.format("room:%s, nick:%s, talker:%s", roomDomain, nickName, talker));
 		logger.debug("[MESSAGE] " + msg);
 		String body = msg.getBody();
+
+		List<MucListener> listeners ;
+		synchronized (mucListeners) {
+			listeners = new ArrayList<>(mucListeners);
+		}
 		for( int i = 0 ; i < listeners.size() ; i++ ) {
 			listeners.get(i).onMucMessage(talker, body);
 		}
