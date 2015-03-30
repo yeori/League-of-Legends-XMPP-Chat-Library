@@ -1,5 +1,8 @@
 package com.github.yeori.lol.muc;
 
+import com.github.theholywaffle.lolchatapi.LolStatus;
+import com.github.theholywaffle.lolchatapi.wrapper.ITalker;
+
 /*
  * #%L
  * League of Legends XMPP Chat Library
@@ -27,21 +30,17 @@ package com.github.yeori.lol.muc;
  */
 
 
-public class Talker {
+public class Talker implements ITalker{
 
-	private String summonerId;
+	private String summonerJID ;
 	private String nickName;
 	private ChatRoom room;
 	
-	Talker(String summonerId, String nickName, ChatRoom room) {
+	Talker(String summonerJID, String nickName, ChatRoom room) {
 		super();
-		this.summonerId = summonerId;
+		this.summonerJID = summonerJID;
 		this.nickName = nickName;
 		this.room = room;
-	}
-
-	public String getSummonerId() {
-		return summonerId;
 	}
 
 	public String getNickName() {
@@ -54,8 +53,32 @@ public class Talker {
 
 	@Override
 	public String toString() {
-		return "Talker [summoner=" + summonerId + ", nick=" + nickName
+		return "Talker [summoner=" + summonerJID + ", nick=" + nickName
 				+ " at " + room + "]";
+	}
+
+	@Override
+	public String getName() {
+		return getNickName();
+	}
+
+	@Override
+	public String getName(boolean forcedUpdate) {
+		return getNickName();
+	}
+
+	@Override
+	public LolStatus getStatus() {
+		/* COMMENT 채팅 참가자의 게임 전전 기록정보인데 굳이 미리 로드할 필요는 없을 듯.
+		 * ui 쪽에서 사용자 정보 검색할때 api 쪽으로 호출하도록 함.
+		 * 
+		 */
+		return null;
+	}
+
+	@Override
+	public String getUserId() {
+		return summonerJID;
 	}
 	
 	

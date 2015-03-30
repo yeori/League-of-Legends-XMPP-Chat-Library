@@ -84,15 +84,52 @@ public class ChatRoom {
 		
 		mucSource.addParticipantListener(new PacketListener() {
 			
+			final MUCUser findMUCUserExtension(Presence psc) {
+				PacketExtension pe = psc.getExtension("http://jabber.org/protocol/muc#user");
+				return pe.getClass() == MUCUser.class ? MUCUser.class.cast(pe) : null;
+			}
+			
 			@Override
 			public void processPacket(Packet packet) throws NotConnectedException {
-				// TODO Auto-generated method stub
 				Presence psc = Presence.class.cast(packet);
-				logger.info(String.format("[참여자] %s is %s, and mode is %s",
+				
+				/* 공개 채팅방에서의 jid의 형태 pu~xxxxxxx@lvl.pvp.net/[UserNickname]
+				 *       roomJID       |/| nickname
+				 * --------------------+--------------
+				 * pu~xxx@lvl.pvp.net  |/| [user-nickname]
+				 */
+				String roomJID = psc.getFrom(); 
+				String nickName = StringUtils.parseResource(roomJID);
+				
+				MUCUser mucUserPacket = findMUCUserExtension(psc);
+				String talkerJID = null; // full JID
+				if ( mucUserPacket == null ) {					
+					if ( nickName.length() > 0 ) {
+						// 맨처음 방에 들어갔을때 전달되는 메세지에는
+						// nickname 부분이 없음.
+						RiotApi riot = lol.getRiotApi();
+						try {
+							talkerJID = "sum" + riot.getSummonerId(nickName) + "@pvp.net";
+						} catch (IOException | URISyntaxException e) {
+							logger.error(String.format("fail to read summoner id using [%s], set to zero. (%s)", 
+									nickName,
+									psc), e);
+						}
+					}
+				} else {
+					talkerJID = mucUserPacket.getItem().getJid();
+				}
+				
+				Talker talker = new Talker(""+talkerJID, nickName, ChatRoom.this);
+				talkers.add(talker);
+				
+				logger.info(String.format("[참여자:roomJID(%s):nick(%s):summonID(%s)] %s is %s, and mode is %s",
+						roomJID,
+						talker.getNickName(),
+						talker.getUserId(),
 						packet.getFrom(), 
 						psc.getType(), 
 						psc.getMode()) );
-				
 			}
 		});
 	}
@@ -109,31 +146,26 @@ public class ChatRoom {
 		mucListeners.remove(listener);
 	}
 	
+	/**
+	 * finds a talker by nickname in the chatroot
+	 * @param nickName
+	 */
+	public ITalker findTalker ( String nickName) {
+		for( ITalker talker : talkers) {
+			if ( talker.getName().equals(nickName) ) {
+				return talker;
+			}
+		}
+		return null;
+	}
 	void notifyMessageReceived(Message msg) {
 		
 		String fqJID = msg.getFrom();
 		String roomDomain = StringUtils.parseBareAddress(fqJID);
 		String nickName = StringUtils.parseResource(fqJID);
 		
-		RiotApi riot = lol.getRiotApi();
-
-		long summonerId = 0;
-		if ( nickName.length() > 0 ) {
-			// 맨처음 방에 들어갔을때 전달되는 메세지에는
-			// nickname 부분이 없음.
-			// FIXME 매번 api 호출해서 sumoner id 를 찾고 있다. 이 정보를 담아놓은 클래스가 필요함.
-			try {
-				summonerId = riot.getSummonerId(nickName);
-			} catch (IOException | URISyntaxException e) {
-				logger.error(String.format("fail to read summoner id using [%s], set to zero. (%s)", 
-						nickName,
-						msg), e);
-			}
-		}
-		
-		Talker talker = new Talker(""+summonerId, nickName, this);
-		logger.debug(String.format("room:%s, nick:%s, talker:%s", roomDomain, nickName, talker));
-		logger.debug("[MESSAGE] " + msg);
+		Talker talker = (Talker)findTalker ( nickName);
+		logger.debug(String.format("[MESSAGE][ROOM:%s, nick:%s, talker:%s] %s", roomDomain, nickName, talker, msg));
 		String body = msg.getBody();
 
 		List<MucListener> listeners ;
