@@ -5,8 +5,7 @@ import com.github.theholywaffle.lolchatapi.LolStatus;
 public interface ITalker {
 
 	/**
-	 * Gets the name of this talker. If the name was null then we try to fetch
-	 * to fetch the name with your Riot API Key if provided.
+	 * Gets the name of this talker.
 	 * 
 	 * @return The name of this Friend or null if no name is assigned.
 	 */
