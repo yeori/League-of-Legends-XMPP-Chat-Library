@@ -18,6 +18,12 @@
 			<url>https://github.com/TheHolyWaffle</url>
 			<id>TheHolyWaffle</id>
 		</developer>
+		<developer>
+			<email>yeori.seo@gmail.com</email>
+			<name>Yeori Seo</name>
+			<url>https://github.com/yeori</url>
+			<id>yeori</id>
+		</developer>
 	</developers>
 
 	<distributionManagement>
@@ -32,7 +38,7 @@
 	</distributionManagement>
 
 	<issueManagement>
-		<url>https://github.com/TheHolyWaffle/League-of-Legends-XMPP-Chat-Library/issues</url>
+		<url>https://github.com/yeori/League-of-Legends-XMPP-Chat-Library/issues</url>
 		<system>GitHub Issues</system>
 	</issueManagement>
 
@@ -44,9 +50,9 @@
 	</licenses>
 
 	<scm>
-		<url>git@github.com:TheHolyWaffle/League-of-Legends-XMPP-Chat-Library.git</url>
-		<connection>scm:git:git@github.com:TheHolyWaffle/League-of-Legends-XMPP-Chat-Library.git</connection>
-		<developerConnection>scm:git:git@github.com:TheHolyWaffle/League-of-Legends-XMPP-Chat-Library.git</developerConnection>
+		<url>git@github.com:yeori/League-of-Legends-XMPP-Chat-Library.git</url>
+		<connection>scm:git@github.com:yeori/League-of-Legends-XMPP-Chat-Library.git</connection>
+		<developerConnection>scm:git@github.com:yeori/League-of-Legends-XMPP-Chat-Library.git</developerConnection>
 	</scm>
 
 	<properties>
@@ -55,6 +61,7 @@
 
 	<build>
 		<plugins>
+		<!-- 설치하기 귀찮아서 막아놓음 ^^;
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-gpg-plugin</artifactId>
@@ -69,6 +76,7 @@
 					</execution>
 				</executions>
 			</plugin>
+		 -->
 			<plugin>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.1</version>
@@ -240,6 +248,11 @@
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
 			<version>1.2.12</version>
+		</dependency>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.11</version>
 		</dependency>
 	</dependencies>
 
