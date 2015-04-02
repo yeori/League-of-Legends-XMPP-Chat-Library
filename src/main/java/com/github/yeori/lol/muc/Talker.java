@@ -82,6 +82,37 @@ public class Talker implements ITalker{
 		return summonerJID;
 	}
 
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((room == null) ? 0 : room.hashCode());
+		result = prime * result
+				+ ((summonerJID == null) ? 0 : summonerJID.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		Talker other = (Talker) obj;
+		if (room == null) {
+			if (other.room != null)
+				return false;
+		} else if (!room.equals(other.room))
+			return false;
+		if (summonerJID == null) {
+			if (other.summonerJID != null)
+				return false;
+		} else if (!summonerJID.equals(other.summonerJID))
+			return false;
+		return true;
+	}
 	
 	
 }

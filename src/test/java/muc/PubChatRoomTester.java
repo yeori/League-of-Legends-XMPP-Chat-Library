@@ -53,6 +53,7 @@ import org.jivesoftware.smackx.muc.RoomInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.github.theholywaffle.lolchatapi.ChatMode;
 import com.github.theholywaffle.lolchatapi.ChatServer;
 import com.github.theholywaffle.lolchatapi.FriendRequestPolicy;
 import com.github.theholywaffle.lolchatapi.LolChat;
@@ -108,6 +109,12 @@ public class PubChatRoomTester {
 				
 				@Override
 				public void newTalkerEntered(ChatRoom chatRoom, Talker newTalker) {
+					logger.debug("구현 안됐음");
+				}
+				
+				@Override
+				public void chatModeChanged(ChatRoom chatRoom, Talker talker,
+						ChatMode chatMode) {
 					logger.debug("구현 안됐음");
 				}
 			});

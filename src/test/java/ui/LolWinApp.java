@@ -14,6 +14,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTree;
 import javax.swing.SwingUtilities;
 
+import com.github.theholywaffle.lolchatapi.ChatMode;
 import com.github.theholywaffle.lolchatapi.ChatServer;
 import com.github.theholywaffle.lolchatapi.FriendRequestPolicy;
 import com.github.theholywaffle.lolchatapi.LolChat;
@@ -224,6 +225,12 @@ public class LolWinApp {
 					public void newTalkerEntered(ChatRoom chatRoom, Talker newTalker) {
 						logger.debug("구현 안됐음");
 					}
+					
+					@Override
+					public void chatModeChanged(ChatRoom chatRoom, Talker talker,
+							ChatMode chatMode) {
+						logger.debug("[채팅 모드 변경] " + chatMode + " of " + talker.getName());
+					}
 				});
 			}
 		});
@@ -346,6 +353,12 @@ public class LolWinApp {
 			@Override
 			public void newTalkerEntered(ChatRoom chatRoom, Talker newTalker) {
 				logger.debug("구현 안됐음");
+			}
+			
+			@Override
+			public void chatModeChanged(ChatRoom chatRoom, Talker talker,
+					ChatMode chatMode) {
+				logger.debug("[채팅 모드 변경] " + chatMode + " of " + talker.getName());
 			}
 		});
 		

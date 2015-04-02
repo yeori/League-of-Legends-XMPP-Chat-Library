@@ -40,6 +40,7 @@ import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.PacketExtension;
 import org.jivesoftware.smack.packet.Presence;
+import org.jivesoftware.smack.packet.Presence.Mode;
 import org.jivesoftware.smack.packet.Presence.Type;
 import org.jivesoftware.smack.util.StringUtils;
 import org.jivesoftware.smackx.muc.MultiUserChat;
@@ -47,6 +48,7 @@ import org.jivesoftware.smackx.muc.packet.MUCUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.github.theholywaffle.lolchatapi.ChatMode;
 import com.github.theholywaffle.lolchatapi.LolChat;
 import com.github.theholywaffle.lolchatapi.LolStatus;
 import com.github.theholywaffle.lolchatapi.riotapi.RiotApi;
@@ -103,15 +105,11 @@ public class ChatRoom {
 					registerTalker(psc);
 					return ;
 				}
-				LolStatus previous = talker.getStatus();
-				/*
-				 * 
-				 */
-				if ( psc.getType() == Type.unavailable ) {
-					unregisterTalker ( psc);
-				} else if ( psc.getType() == Type.available){
-					registerTalker(psc);
+				if ( psc.getType() == Type.unavailable) {
+					unregisterTalker(talker);
+					return ;
 				}
+				notifyTalkerMode ( talker, psc.getMode() );
 				
 			}
 		});
@@ -149,7 +147,7 @@ public class ChatRoom {
 			talkerJID = mucUserPacket.getItem().getJid();
 		}
 		
-		Talker talker = new Talker(""+talkerJID, nickName, ChatRoom.this);
+		Talker talker = new Talker(talkerJID, nickName, ChatRoom.this);
 		
 		String statusXML = psc.getStatus();
 		if (StringUtils.isNotEmpty(statusXML)) {
@@ -159,7 +157,7 @@ public class ChatRoom {
 			} catch (JDOMException e) {
 				logger.warn("[STATUS ERROR] fail to parse LolStatus from <presence>.<status>", e);
 			} catch (IOException e) {
-				logger.warn("[IO ERROR] fail to parse LolStatus from <presence>.<status>", e);
+				logger.warn("[IO ERROR] fail to parse LolStatus", e);
 			}
 		}
 		talkers.add(talker);
@@ -190,6 +188,33 @@ public class ChatRoom {
 			cloned.get(i).newTalkerEntered(this, talker);
 		}
 	}
+	/**
+	 * 사용자의 상태정보 통보
+	 * @param mode
+	 */
+	private void notifyTalkerMode(Talker talker, Mode mode) {
+		ArrayList<MucListener> cloned = null;
+		
+		synchronized (mucListeners) {
+			cloned = new ArrayList<>(mucListeners);
+		}
+		ChatMode chatMode  = ChatMode.AVAILABLE;
+		
+		if ( mode == Mode.away) {
+			chatMode = ChatMode.AWAY;
+		} else if ( mode == Mode.chat) {
+			chatMode = ChatMode.AVAILABLE;
+		} else if ( mode == Mode.dnd || mode == Mode.xa) {
+			chatMode = ChatMode.BUSY;
+		}
+		
+		for ( int i = 0 ; i < cloned.size() ; i++) {
+			cloned.get(i).chatModeChanged(
+					talker.getRoom(), 
+					talker, 
+					chatMode);
+		}
+	}
 
 	final MUCUser findMUCUserExtension(Presence psc) {
 		PacketExtension pe = psc.getExtension("http://jabber.org/protocol/muc#user");
@@ -200,19 +225,12 @@ public class ChatRoom {
 	 * 참여자 제거
 	 * @param psc
 	 */
-	final private void unregisterTalker ( Presence psc) {
-		String roomJID = psc.getFrom(); 
-		String nickName = StringUtils.parseResource(roomJID);
-		Talker talker = null;
+	final private void unregisterTalker ( Talker talker) {
 		for ( Talker t : talkers) {
-			if ( t.getNickName().equals ( nickName)) {
-				talker= t;
-				break;
+			if ( t.equals(talker)) {
+				talkers.remove(talker);
+				return ;
 			}
-		}
-		
-		if ( talker != null ) {
-			talkers.remove(talker);
 		}
 	}
 
@@ -266,4 +284,38 @@ public class ChatRoom {
 		}
 		
 	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((roomId == null) ? 0 : roomId.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ChatRoom other = (ChatRoom) obj;
+		if (roomId == null) {
+			if (other.roomId != null)
+				return false;
+		} else if (!roomId.equals(other.roomId))
+			return false;
+		return true;
+	}
+
+	@Override
+	public String toString() {
+		return "ChatRoom [room:" + roomId + "] mucSource=" + mucSource
+				+ ", talkers=" + talkers + "]";
+	}
+	
+	
+	
 }
