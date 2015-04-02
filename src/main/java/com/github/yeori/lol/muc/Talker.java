@@ -55,7 +55,7 @@ public class Talker implements ITalker{
 	@Override
 	public String toString() {
 		return "Talker [summoner=" + summonerJID + ", nick=" + nickName
-				+ " at " + room + "]";
+				+ " at " + room.getRoomName() + "]";
 	}
 
 	@Override

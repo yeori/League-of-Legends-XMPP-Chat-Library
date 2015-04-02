@@ -62,17 +62,21 @@ import com.github.yeori.lol.listeners.MucListener;
 public class ChatRoom {
 	private Logger logger = LoggerFactory.getLogger(ChatRoom.class);
 	private LolChat lol;
-	private String roomId ;
+	private String roomName ;
 	private MultiUserChat mucSource;
 	final private ArrayList<MucListener> mucListeners = new ArrayList<>();
 	final private List<Talker> talkers = new ArrayList<>();
 	
-	public ChatRoom(LolChat lol, MultiUserChat muc, String roomId) {
+	public ChatRoom(LolChat lol, MultiUserChat muc, String roomName) {
 		this.lol = lol;
 		this.mucSource = muc;
-		this.roomId = roomId;
+		this.roomName = roomName;
 		
 		installListeners();
+	}
+	
+	public String getRoomName() {
+		return roomName;
 	}
 	
 	final private void installListeners() {
@@ -87,7 +91,6 @@ public class ChatRoom {
 		});
 		
 		mucSource.addParticipantListener(new PacketListener() {
-			
 			
 			@Override
 			public void processPacket(Packet packet) throws NotConnectedException {
@@ -275,6 +278,7 @@ public class ChatRoom {
 			if ( t.equals(talker)) {
 				talkers.remove(talker);
 				notifyTalkerLeaved(talker);
+				logger.debug("[TALKER LEAVED]" + talker + " count : " + this.countTalkers());
 				return ;
 			}
 		}
@@ -306,6 +310,7 @@ public class ChatRoom {
 	public void addTalker( Talker newTalker) {
 		talkers.add(newTalker);
 		notifyNewTalkerEntrance(newTalker);
+		logger.debug("[TALKER JOINED]" + newTalker + " count : " + this.countTalkers());
 	}
 	/**
 	 * finds a talker by nickname in the chatroom
@@ -349,7 +354,7 @@ public class ChatRoom {
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((roomId == null) ? 0 : roomId.hashCode());
+		result = prime * result + ((roomName == null) ? 0 : roomName.hashCode());
 		return result;
 	}
 
@@ -362,20 +367,17 @@ public class ChatRoom {
 		if (getClass() != obj.getClass())
 			return false;
 		ChatRoom other = (ChatRoom) obj;
-		if (roomId == null) {
-			if (other.roomId != null)
+		if (roomName == null) {
+			if (other.roomName != null)
 				return false;
-		} else if (!roomId.equals(other.roomId))
+		} else if (!roomName.equals(other.roomName))
 			return false;
 		return true;
 	}
 
 	@Override
 	public String toString() {
-		return "ChatRoom [room:" + roomId + "] mucSource=" + mucSource
+		return "ChatRoom [room:" + roomName + "] mucSource=" + mucSource
 				+ ", talkers=" + talkers + "]";
 	}
-	
-	
-	
 }

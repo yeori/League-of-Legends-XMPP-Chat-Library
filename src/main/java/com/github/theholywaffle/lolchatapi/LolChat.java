@@ -1118,28 +1118,27 @@ public class LolChat {
 		return joinPublicRoom(plainRoomName, null);
 	}
 	
-	public ChatRoom joinPublicRoom(String plainRoomName, MucListener mucListener) {
-		String roomId = roomNaming.translate(plainRoomName);
-		logger.debug(String.format("[ROOM NAME] %s => %s", plainRoomName, roomId));
-		ChatRoom chatRoom = joinRoom(roomId, mucListener);
+	public ChatRoom joinPublicRoom(String roomName, MucListener mucListener) {
+		ChatRoom chatRoom = joinRoom(roomName, mucListener);
 		return chatRoom;
-		
 	}
 	
 	/**
 	 * 
 	 * @param roomId - full qualified jabberID of a chat room
 	 */
-	ChatRoom joinRoom(final String roomId) throws MucException{
-		return joinRoom(roomId, null);
+	ChatRoom joinRoom(final String roomName) throws MucException{
+		return joinRoom(roomName, null);
 	}
 	
-	ChatRoom joinRoom(final String roomId, MucListener listener) throws MucException{
+	ChatRoom joinRoom(final String roomName, MucListener listener) throws MucException{
+		final String roomId = roomNaming.translate(roomName);
+		logger.debug(String.format("[ROOM NAME] %s => %s", roomName, roomId));
 		XMPPConnection conn = getConnection();
 		MultiUserChat muc = new MultiUserChat(conn, roomId);
 		
 		try {
-			ChatRoom room = new ChatRoom(this, muc, roomId);
+			ChatRoom room = new ChatRoom(this, muc, roomName);
 			if ( listener != null ){
 				room.addMucListener(listener);
 			}
