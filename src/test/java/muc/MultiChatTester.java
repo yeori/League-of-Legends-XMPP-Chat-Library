@@ -61,6 +61,7 @@ import com.github.theholywaffle.lolchatapi.listeners.FriendListener;
 import com.github.theholywaffle.lolchatapi.riotapi.RiotApiKey;
 import com.github.theholywaffle.lolchatapi.wrapper.Friend;
 import com.github.yeori.lol.listeners.MucListener;
+import com.github.yeori.lol.muc.ChatRoom;
 import com.github.yeori.lol.muc.Talker;
 import com.github.yeori.lol.riotapi.DefaultRiotApiFactory;
 
@@ -117,6 +118,11 @@ public class MultiChatTester {
 			
 			logger.info(sender + ", " + body);
 			
+		}
+		
+		@Override
+		public void newTalkerEntered(ChatRoom chatRoom, Talker newTalker) {
+			logger.debug("구현 안됐음");
 		}
 		
 	}

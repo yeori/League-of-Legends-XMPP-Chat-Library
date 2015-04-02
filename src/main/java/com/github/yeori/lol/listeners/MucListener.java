@@ -28,6 +28,7 @@ package com.github.yeori.lol.listeners;
 
 
 import com.github.theholywaffle.lolchatapi.LolChat;
+import com.github.yeori.lol.muc.ChatRoom;
 import com.github.yeori.lol.muc.Talker;
 
 public interface MucListener {
@@ -42,5 +43,7 @@ public interface MucListener {
 	public boolean invitationReceived(LolChat chatApi, String roomName, String inviter, String password) ;
 
 	public void onMucMessage(Talker talker, String body);
+
+	public void newTalkerEntered(ChatRoom chatRoom, Talker newTalker);
 	
 }

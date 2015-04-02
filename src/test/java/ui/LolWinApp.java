@@ -219,6 +219,11 @@ public class LolWinApp {
 						// TODO Auto-generated method stub
 						return false;
 					}
+					
+					@Override
+					public void newTalkerEntered(ChatRoom chatRoom, Talker newTalker) {
+						logger.debug("구현 안됐음");
+					}
 				});
 			}
 		});
@@ -336,6 +341,11 @@ public class LolWinApp {
 					String inviter, String password) {
 				// TODO Auto-generated method stub
 				return false;
+			}
+			
+			@Override
+			public void newTalkerEntered(ChatRoom chatRoom, Talker newTalker) {
+				logger.debug("구현 안됐음");
 			}
 		});
 		

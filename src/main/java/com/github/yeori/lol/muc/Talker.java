@@ -35,6 +35,7 @@ public class Talker implements ITalker{
 	private String summonerJID ;
 	private String nickName;
 	private ChatRoom room;
+	private LolStatus status;
 	
 	Talker(String summonerJID, String nickName, ChatRoom room) {
 		super();
@@ -69,17 +70,18 @@ public class Talker implements ITalker{
 
 	@Override
 	public LolStatus getStatus() {
-		/* COMMENT 채팅 참가자의 게임 전전 기록정보인데 굳이 미리 로드할 필요는 없을 듯.
-		 * ui 쪽에서 사용자 정보 검색할때 api 쪽으로 호출하도록 함.
-		 * 
-		 */
-		return null;
+		return status;
+	}
+	public void setStatus(LolStatus newStatus) {
+		LolStatus oldStatus = status;
+		status = newStatus;
 	}
 
 	@Override
 	public String getUserId() {
 		return summonerJID;
 	}
+
 	
 	
 }

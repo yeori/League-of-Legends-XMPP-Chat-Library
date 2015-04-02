@@ -60,6 +60,7 @@ import com.github.theholywaffle.lolchatapi.riotapi.RiotApiException;
 import com.github.theholywaffle.lolchatapi.riotapi.RiotApiKey;
 import com.github.theholywaffle.lolchatapi.wrapper.Friend;
 import com.github.yeori.lol.listeners.MucListener;
+import com.github.yeori.lol.muc.ChatRoom;
 import com.github.yeori.lol.muc.Talker;
 import com.github.yeori.lol.riotapi.DefaultRiotApiFactory;
 
@@ -103,6 +104,11 @@ public class PubChatRoomTester {
 						String inviter, String password) {
 					// TODO Auto-generated method stub
 					return false;
+				}
+				
+				@Override
+				public void newTalkerEntered(ChatRoom chatRoom, Talker newTalker) {
+					logger.debug("구현 안됐음");
 				}
 			});
 	}

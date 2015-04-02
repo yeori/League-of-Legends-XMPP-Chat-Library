@@ -32,6 +32,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.jdom2.JDOMException;
 import org.jivesoftware.smack.PacketListener;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.XMPPException;
@@ -39,6 +40,7 @@ import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.PacketExtension;
 import org.jivesoftware.smack.packet.Presence;
+import org.jivesoftware.smack.packet.Presence.Type;
 import org.jivesoftware.smack.util.StringUtils;
 import org.jivesoftware.smackx.muc.MultiUserChat;
 import org.jivesoftware.smackx.muc.packet.MUCUser;
@@ -46,8 +48,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.github.theholywaffle.lolchatapi.LolChat;
+import com.github.theholywaffle.lolchatapi.LolStatus;
 import com.github.theholywaffle.lolchatapi.riotapi.RiotApi;
-import com.github.theholywaffle.lolchatapi.wrapper.ITalker;
 import com.github.yeori.lol.listeners.MucListener;
 /**
  * 공개 또는 비공개 채팅방을 나타내는 클래스
@@ -61,7 +63,7 @@ public class ChatRoom {
 	private String roomId ;
 	private MultiUserChat mucSource;
 	final private ArrayList<MucListener> mucListeners = new ArrayList<>();
-	final private List<ITalker> talkers = new ArrayList<>();
+	final private List<Talker> talkers = new ArrayList<>();
 	
 	public ChatRoom(LolChat lol, MultiUserChat muc, String roomId) {
 		this.lol = lol;
@@ -84,56 +86,135 @@ public class ChatRoom {
 		
 		mucSource.addParticipantListener(new PacketListener() {
 			
-			final MUCUser findMUCUserExtension(Presence psc) {
-				PacketExtension pe = psc.getExtension("http://jabber.org/protocol/muc#user");
-				return pe.getClass() == MUCUser.class ? MUCUser.class.cast(pe) : null;
-			}
 			
 			@Override
 			public void processPacket(Packet packet) throws NotConnectedException {
 				Presence psc = Presence.class.cast(packet);
 				
-				/* 공개 채팅방에서의 jid의 형태 pu~xxxxxxx@lvl.pvp.net/[UserNickname]
-				 *       roomJID       |/| nickname
-				 * --------------------+--------------
-				 * pu~xxx@lvl.pvp.net  |/| [user-nickname]
-				 */
 				String roomJID = psc.getFrom(); 
 				String nickName = StringUtils.parseResource(roomJID);
-				
-				MUCUser mucUserPacket = findMUCUserExtension(psc);
-				String talkerJID = null; // full JID
-				if ( mucUserPacket == null ) {					
-					if ( nickName.length() > 0 ) {
-						// 맨처음 방에 들어갔을때 전달되는 메세지에는
-						// nickname 부분이 없음.
-						RiotApi riot = lol.getRiotApi();
-						try {
-							talkerJID = "sum" + riot.getSummonerId(nickName) + "@pvp.net";
-						} catch (IOException | URISyntaxException e) {
-							logger.error(String.format("fail to read summoner id using [%s], set to zero. (%s)", 
-									nickName,
-									psc), e);
-						}
-					}
-				} else {
-					talkerJID = mucUserPacket.getItem().getJid();
+				if ( StringUtils.isNullOrEmpty(nickName)) {
+					logger.warn("[INVALID NICKNAME] nickname 부분이 없음." + packet.toXML());
+					return ;
 				}
 				
-				Talker talker = new Talker(""+talkerJID, nickName, ChatRoom.this);
-				talkers.add(talker);
+				Talker talker = findTalker(nickName);
+				if ( talker == null ) {
+					registerTalker(psc);
+					return ;
+				}
+				LolStatus previous = talker.getStatus();
+				/*
+				 * 
+				 */
+				if ( psc.getType() == Type.unavailable ) {
+					unregisterTalker ( psc);
+				} else if ( psc.getType() == Type.available){
+					registerTalker(psc);
+				}
 				
-				logger.info(String.format("[참여자:roomJID(%s):nick(%s):summonID(%s)] %s is %s, and mode is %s",
-						roomJID,
-						talker.getNickName(),
-						talker.getUserId(),
-						packet.getFrom(), 
-						psc.getType(), 
-						psc.getMode()) );
 			}
 		});
 	}
 
+	/**
+	 * 새로운 참여자로 등록함.
+	 * @param psc
+	 */
+	final private void registerTalker ( Presence psc) {
+		/* 공개 채팅방에서의 jid의 형태 pu~xxxxxxx@lvl.pvp.net/[UserNickname]
+		 *       roomJID       |/| nickname
+		 * --------------------+--------------
+		 * pu~xxx@lvl.pvp.net  |/| [user-nickname]
+		 */
+		String roomJID = psc.getFrom();
+		String nickName = StringUtils.parseResource(roomJID);
+		
+		MUCUser mucUserPacket = findMUCUserExtension(psc);
+		String talkerJID = null; // full JID
+		if ( mucUserPacket == null ) {					
+			if ( nickName.length() > 0 ) {
+				// 맨처음 방에 들어갔을때 전달되는 메세지에는
+				// nickname 부분이 없음.
+				RiotApi riot = lol.getRiotApi();
+				try {
+					talkerJID = "sum" + riot.getSummonerId(nickName) + "@pvp.net";
+				} catch (IOException | URISyntaxException e) {
+					logger.error(String.format("fail to read summoner id using [%s], set to zero. (%s)", 
+							nickName,
+							psc), e);
+				}
+			}
+		} else {
+			talkerJID = mucUserPacket.getItem().getJid();
+		}
+		
+		Talker talker = new Talker(""+talkerJID, nickName, ChatRoom.this);
+		
+		String statusXML = psc.getStatus();
+		if (StringUtils.isNotEmpty(statusXML)) {
+			// 로그인한 자기 자신인 경우에는 status element가 없음.
+			try {
+				talker.setStatus(new LolStatus(statusXML));
+			} catch (JDOMException e) {
+				logger.warn("[STATUS ERROR] fail to parse LolStatus from <presence>.<status>", e);
+			} catch (IOException e) {
+				logger.warn("[IO ERROR] fail to parse LolStatus from <presence>.<status>", e);
+			}
+		}
+		talkers.add(talker);
+		
+		notifyNewTalkerEntrance(talker);
+		
+		logger.info(String.format("[참여자:roomJID(%s):nick(%s):summonID(%s)] %s is %s, and mode is %s",
+				roomJID,
+				talker.getNickName(),
+				talker.getUserId(),
+				psc.getFrom(), 
+				psc.getType(), 
+				psc.getMode()) );
+	}
+	
+	/**
+	 * 채팅방에 들어온 새로운 참여자
+	 * @param talker
+	 */
+	private void notifyNewTalkerEntrance(Talker talker) {
+		ArrayList<MucListener> cloned = null;
+		
+		synchronized (mucListeners) {			
+			cloned = new ArrayList<>(mucListeners);
+		}
+		
+		for ( int i = 0 ; i < cloned.size() ; i++) {
+			cloned.get(i).newTalkerEntered(this, talker);
+		}
+	}
+
+	final MUCUser findMUCUserExtension(Presence psc) {
+		PacketExtension pe = psc.getExtension("http://jabber.org/protocol/muc#user");
+		return pe.getClass() == MUCUser.class ? MUCUser.class.cast(pe) : null;
+	}
+	
+	/**
+	 * 참여자 제거
+	 * @param psc
+	 */
+	final private void unregisterTalker ( Presence psc) {
+		String roomJID = psc.getFrom(); 
+		String nickName = StringUtils.parseResource(roomJID);
+		Talker talker = null;
+		for ( Talker t : talkers) {
+			if ( t.getNickName().equals ( nickName)) {
+				talker= t;
+				break;
+			}
+		}
+		
+		if ( talker != null ) {
+			talkers.remove(talker);
+		}
+	}
 
 	public void addMucListener ( MucListener listener) {
 		if (mucListeners.contains(listener)) {
@@ -150,8 +231,8 @@ public class ChatRoom {
 	 * finds a talker by nickname in the chatroot
 	 * @param nickName
 	 */
-	public ITalker findTalker ( String nickName) {
-		for( ITalker talker : talkers) {
+	public Talker findTalker ( String nickName) {
+		for( Talker talker : talkers) {
 			if ( talker.getName().equals(nickName) ) {
 				return talker;
 			}
