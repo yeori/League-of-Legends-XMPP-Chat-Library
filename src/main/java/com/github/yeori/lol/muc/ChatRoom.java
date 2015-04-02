@@ -128,9 +128,37 @@ public class ChatRoom {
 		String roomJID = psc.getFrom();
 		String nickName = StringUtils.parseResource(roomJID);
 		
+		Talker talker = createTalker(psc);
+		
+		String statusXML = psc.getStatus();
+		if (StringUtils.isNotEmpty(statusXML)) {
+			// 로그인한 자기 자신인 경우에는 status element가 없음.
+			try {
+				talker.setStatus(new LolStatus(statusXML));
+			} catch (JDOMException e) {
+				logger.warn("[STATUS ERROR] fail to parse LolStatus from <presence>.<status>", e);
+			} catch (IOException e) {
+				logger.warn("[IO ERROR] fail to parse LolStatus", e);
+			}
+		}
+		addTalker(talker);
+		
+		logger.info(String.format("[참여자:roomJID(%s):nick(%s):summonID(%s)] %s is %s, and mode is %s",
+				roomJID,
+				talker.getNickName(),
+				talker.getUserId(),
+				psc.getFrom(), 
+				psc.getType(), 
+				psc.getMode()) );
+	}
+	
+	final private Talker createTalker ( Presence psc) {
+		String roomJID = psc.getFrom();
+		String nickName = StringUtils.parseResource(roomJID);
+		
 		MUCUser mucUserPacket = findMUCUserExtension(psc);
 		String talkerJID = null; // full JID
-		if ( mucUserPacket == null ) {					
+		if ( mucUserPacket == null ) {
 			if ( nickName.length() > 0 ) {
 				// 맨처음 방에 들어갔을때 전달되는 메세지에는
 				// nickname 부분이 없음.
@@ -147,34 +175,17 @@ public class ChatRoom {
 			talkerJID = mucUserPacket.getItem().getJid();
 		}
 		
-		Talker talker = new Talker(talkerJID, nickName, ChatRoom.this);
-		
-		String statusXML = psc.getStatus();
-		if (StringUtils.isNotEmpty(statusXML)) {
-			// 로그인한 자기 자신인 경우에는 status element가 없음.
-			try {
-				talker.setStatus(new LolStatus(statusXML));
-			} catch (JDOMException e) {
-				logger.warn("[STATUS ERROR] fail to parse LolStatus from <presence>.<status>", e);
-			} catch (IOException e) {
-				logger.warn("[IO ERROR] fail to parse LolStatus", e);
-			}
-		}
-		talkers.add(talker);
-		
-		notifyNewTalkerEntrance(talker);
-		
-		logger.info(String.format("[참여자:roomJID(%s):nick(%s):summonID(%s)] %s is %s, and mode is %s",
-				roomJID,
-				talker.getNickName(),
-				talker.getUserId(),
-				psc.getFrom(), 
-				psc.getType(), 
-				psc.getMode()) );
+		Talker talker = new Talker(talkerJID, nickName, this);
+		return talker;
+	}
+	
+	final MUCUser findMUCUserExtension(Presence psc) {
+		PacketExtension pe = psc.getExtension("http://jabber.org/protocol/muc#user");
+		return pe.getClass() == MUCUser.class ? MUCUser.class.cast(pe) : null;
 	}
 	
 	/**
-	 * 채팅방에 들어온 새로운 참여자
+	 * 채팅방에 들어온 새로운 참여자를 리스너에 통보
 	 * @param talker
 	 */
 	private void notifyNewTalkerEntrance(Talker talker) {
@@ -188,8 +199,32 @@ public class ChatRoom {
 			cloned.get(i).newTalkerEntered(this, talker);
 		}
 	}
+	
 	/**
-	 * 사용자의 상태정보 통보
+	 * 채팅방에 올라온 새로운 메세지를 리스너에 통보
+	 * @param msg
+	 */
+	private void notifyMessageReceived(Message msg) {
+		
+		String fqJID = msg.getFrom();
+		String roomDomain = StringUtils.parseBareAddress(fqJID);
+		String nickName = StringUtils.parseResource(fqJID);
+		
+		Talker talker = (Talker)findTalker ( nickName);
+		logger.debug(String.format("[MESSAGE][ROOM:%s, nick:%s, talker:%s] %s", roomDomain, nickName, talker, msg));
+		String body = msg.getBody();
+
+		List<MucListener> listeners ;
+		synchronized (mucListeners) {
+			listeners = new ArrayList<>(mucListeners);
+		}
+		for( int i = 0 ; i < listeners.size() ; i++ ) {
+			listeners.get(i).onMucMessage(talker, body);
+		}
+	}
+
+	/**
+	 * 채팅방에 참가중인 참여자의 상태정보를 리스너에 통보(게임관전, 게임 참여 등 참여자 모드 변경시 통보됨)
 	 * @param mode
 	 */
 	private void notifyTalkerMode(Talker talker, Mode mode) {
@@ -216,6 +251,10 @@ public class ChatRoom {
 		}
 	}
 	
+	/**
+	 * 채팅방을 나갔을때 리스너에게 통보
+	 * @param talker
+	 */
 	private void notifyTalkerLeaved(Talker talker) {
 		ArrayList<MucListener> cloned = null;
 		
@@ -227,14 +266,9 @@ public class ChatRoom {
 			cloned.get(i).talkerLeaved(talker.getRoom(), talker);
 		}
 	}
-
-	final MUCUser findMUCUserExtension(Presence psc) {
-		PacketExtension pe = psc.getExtension("http://jabber.org/protocol/muc#user");
-		return pe.getClass() == MUCUser.class ? MUCUser.class.cast(pe) : null;
-	}
 	
 	/**
-	 * 참여자 제거
+	 * 참여자를 채팅방에서 제거함
 	 * @param psc
 	 */
 	final private void unregisterTalker ( Talker talker) {
@@ -247,6 +281,10 @@ public class ChatRoom {
 		}
 	}
 
+	/**
+	 * 채팅방 리스너를 등록함.
+	 * @param listener
+	 */
 	public void addMucListener ( MucListener listener) {
 		if (mucListeners.contains(listener)) {
 			mucListeners.remove(listener);
@@ -254,12 +292,24 @@ public class ChatRoom {
 		mucListeners.add(listener);
 	}
 	
+	/**
+	 * 채팅방 리스너를 제거
+	 * @param listener
+	 */
 	public void removeMucListener( MucListener listener) {
 		mucListeners.remove(listener);
 	}
 	
 	/**
-	 * finds a talker by nickname in the chatroot
+	 * 새로운 채팅 참여자를 등록함.
+	 * @param newTalker
+	 */
+	public void addTalker( Talker newTalker) {
+		talkers.add(newTalker);
+		notifyNewTalkerEntrance(newTalker);
+	}
+	/**
+	 * finds a talker by nickname in the chatroom
 	 * @param nickName
 	 */
 	public Talker findTalker ( String nickName) {
@@ -270,25 +320,23 @@ public class ChatRoom {
 		}
 		return null;
 	}
-	void notifyMessageReceived(Message msg) {
-		
-		String fqJID = msg.getFrom();
-		String roomDomain = StringUtils.parseBareAddress(fqJID);
-		String nickName = StringUtils.parseResource(fqJID);
-		
-		Talker talker = (Talker)findTalker ( nickName);
-		logger.debug(String.format("[MESSAGE][ROOM:%s, nick:%s, talker:%s] %s", roomDomain, nickName, talker, msg));
-		String body = msg.getBody();
-
-		List<MucListener> listeners ;
-		synchronized (mucListeners) {
-			listeners = new ArrayList<>(mucListeners);
-		}
-		for( int i = 0 ; i < listeners.size() ; i++ ) {
-			listeners.get(i).onMucMessage(talker, body);
-		}
+	
+	/**
+	 * 현재 채팅방에 등록된 모든 참가자들을 반환
+	 * @return
+	 */
+	public List<Talker> getTalkers() {
+		return new ArrayList<>(talkers);
 	}
-
+	
+	/**
+	 * 채팅방 참여자의 숫자
+	 * @return
+	 */
+	public int countTalkers() {
+		return talkers.size();
+	}
+	
 	public void sendMessage(String message) throws MucException{
 		try {
 			mucSource.sendMessage(message);
