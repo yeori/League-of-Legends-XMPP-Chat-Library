@@ -132,6 +132,11 @@ public class MultiChatTester {
 			logger.debug("구현 안됐음");
 		}
 		
+		@Override
+		public void talkerLeaved(ChatRoom chatRoom, Talker talker) {
+			logger.debug("나간 사용자 : " + talker);
+		}
+		
 	}
 	static class FriendHandler implements FriendListener{
 

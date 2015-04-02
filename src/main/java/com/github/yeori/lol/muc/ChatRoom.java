@@ -215,6 +215,18 @@ public class ChatRoom {
 					chatMode);
 		}
 	}
+	
+	private void notifyTalkerLeaved(Talker talker) {
+		ArrayList<MucListener> cloned = null;
+		
+		synchronized (mucListeners) {			
+			cloned = new ArrayList<>(mucListeners);
+		}
+		
+		for ( int i = 0 ; i < cloned.size() ; i++) {
+			cloned.get(i).talkerLeaved(talker.getRoom(), talker);
+		}
+	}
 
 	final MUCUser findMUCUserExtension(Presence psc) {
 		PacketExtension pe = psc.getExtension("http://jabber.org/protocol/muc#user");
@@ -229,6 +241,7 @@ public class ChatRoom {
 		for ( Talker t : talkers) {
 			if ( t.equals(talker)) {
 				talkers.remove(talker);
+				notifyTalkerLeaved(talker);
 				return ;
 			}
 		}

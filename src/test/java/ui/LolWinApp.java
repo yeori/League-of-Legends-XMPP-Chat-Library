@@ -231,6 +231,11 @@ public class LolWinApp {
 							ChatMode chatMode) {
 						logger.debug("[채팅 모드 변경] " + chatMode + " of " + talker.getName());
 					}
+					
+					@Override
+					public void talkerLeaved(ChatRoom chatRoom, Talker talker) {
+						logger.debug("나간 사용자 : " + talker);
+					}
 				});
 			}
 		});
@@ -359,6 +364,11 @@ public class LolWinApp {
 			public void chatModeChanged(ChatRoom chatRoom, Talker talker,
 					ChatMode chatMode) {
 				logger.debug("[채팅 모드 변경] " + chatMode + " of " + talker.getName());
+			}
+			
+			@Override
+			public void talkerLeaved(ChatRoom chatRoom, Talker talker) {
+				logger.debug("나간 사용자 : " + talker);
 			}
 		});
 		

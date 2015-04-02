@@ -49,6 +49,8 @@ public interface MucListener {
 
 	public void chatModeChanged(ChatRoom chatRoom, Talker talker,
 			ChatMode chatMode);
+
+	public void talkerLeaved(ChatRoom chatRoom, Talker talker);
 	
 	
 }
