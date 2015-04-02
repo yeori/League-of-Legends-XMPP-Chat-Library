@@ -77,7 +77,7 @@ public class RiotApi {
 	/**
 	 * finds lol player name(maybe unique nickname) using summoner id.  
 	 * @param userId
-	 * @return
+	 * @return player name in the lol
 	 * @throws IOException
 	 */
 	public String getName(String userId) throws IOException {
