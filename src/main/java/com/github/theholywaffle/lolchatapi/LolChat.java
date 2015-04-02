@@ -937,8 +937,8 @@ public class LolChat {
 	 * @return true if login is successful, false otherwise
 	 * @see GarenaLogin Logging in on Garena servers
 	 */
-	public void login(String username, String password) throws LolException{
-		login(username, password, false);
+	public boolean login(String username, String password) throws LolException{
+		return login(username, password, false);
 	}
 
 	/**
@@ -966,7 +966,7 @@ public class LolChat {
 	 * @return true if login was succesful, false otherwise
 	 * @see GarenaLogin Logging in on Garena servers
 	 */
-	public void login(String username, String password, boolean replaceLeague) throws LolException{
+	public boolean login(String username, String password, boolean replaceLeague) throws LolException{
 
 		try {
 			/*
@@ -982,6 +982,7 @@ public class LolChat {
 		try {
 			server.loginMethod.login(connection, username, password, replaceLeague);
 			logger.debug("[LOGIN SUCCESS] login success");
+			return true;
 		} catch ( LoginException e) {
 			logger.debug("[LOGIN FAILRUE]");
 			try {
