@@ -125,22 +125,8 @@ public class ChatRoom {
 		 * --------------------+--------------
 		 * pu~xxx@lvl.pvp.net  |/| [user-nickname]
 		 */
-		String roomJID = psc.getFrom();
-		String nickName = StringUtils.parseResource(roomJID);
-		
+		String roomJID = psc.getFrom();		
 		Talker talker = createTalker(psc);
-		
-		String statusXML = psc.getStatus();
-		if (StringUtils.isNotEmpty(statusXML)) {
-			// 로그인한 자기 자신인 경우에는 status element가 없음.
-			try {
-				talker.setStatus(new LolStatus(statusXML));
-			} catch (JDOMException e) {
-				logger.warn("[STATUS ERROR] fail to parse LolStatus from <presence>.<status>", e);
-			} catch (IOException e) {
-				logger.warn("[IO ERROR] fail to parse LolStatus", e);
-			}
-		}
 		addTalker(talker);
 		
 		logger.info(String.format("[참여자:roomJID(%s):nick(%s):summonID(%s)] %s is %s, and mode is %s",
@@ -176,6 +162,19 @@ public class ChatRoom {
 		}
 		
 		Talker talker = new Talker(talkerJID, nickName, this);
+		
+		String statusXML = psc.getStatus();
+		if (StringUtils.isNotEmpty(statusXML)) {
+			// 로그인한 자기 자신인 경우에는 status element가 없음.
+			try {
+				talker.setStatus(new LolStatus(statusXML));
+			} catch (JDOMException e) {
+				logger.warn("[STATUS ERROR] fail to parse LolStatus from <presence>.<status>", e);
+			} catch (IOException e) {
+				logger.warn("[IO ERROR] fail to parse LolStatus", e);
+			}
+		}
+		
 		return talker;
 	}
 	
