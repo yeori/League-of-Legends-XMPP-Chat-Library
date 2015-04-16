@@ -36,6 +36,7 @@ import javax.swing.JSplitPane;
 
 import java.awt.BorderLayout;
 
+import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JScrollPane;
 import javax.swing.JTree;
@@ -76,6 +77,8 @@ import org.slf4j.LoggerFactory;
 
 import org.slf4j.Logger;
 
+import ui.FriendRegisterDialog.NewFriendRequest;
+
 public class LolWinApp {
 	private Logger logger = LoggerFactory.getLogger(LolWinApp.class);
 	private JFrame frame;
@@ -92,6 +95,9 @@ public class LolWinApp {
 	private JTabbedPane tabbedPane;
 	private JMenu mnMuc;
 	private JMenuItem mntmJoin;
+	private JMenu mnFriends;
+	private JMenuItem mntmAddNewFriend;
+	private JMenuItem mntmRemovefriend;
 	public static void main(String[] args) {
 		
 		
@@ -169,6 +175,24 @@ public class LolWinApp {
 			}
 		});
 		mnMuc.add(mntmJoin);
+		
+		mnFriends = new JMenu("Friends");
+		menuBar.add(mnFriends);
+		
+		mntmAddNewFriend = new JMenuItem("Add New Friend");
+		mntmAddNewFriend.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				showFriendRegisteringDialog();
+			}
+		});
+		mnFriends.add(mntmAddNewFriend);
+		
+		mntmRemovefriend = new JMenuItem("RemoveFriend");
+		mntmRemovefriend.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+			}
+		});
+		mnFriends.add(mntmRemovefriend);
 	}
 	
 	private void installUIListeners () {
@@ -267,6 +291,24 @@ public class LolWinApp {
 			}
 		});
 		dialog.setVisible(true);
+	}
+	
+	/**
+	 * 새로운 친구 추가 대화창
+	 */
+	private void showFriendRegisteringDialog() {
+		
+		FriendRegisterDialog dialog = new FriendRegisterDialog(frame);
+		dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+		dialog.setVisible(true);
+		dialog.listener = new NewFriendRequest() {
+			
+			@Override
+			public void newFriendRegisteringRequest(String friendName) {
+				chatApi.addFriendByName(friendName);
+			}
+		};
+		
 	}
 	private void showLoginDialog() {
 		JFrame parent = this.frame;
@@ -421,24 +463,35 @@ public class LolWinApp {
 			e.getCause().printStackTrace();
 		}
 	}
+	
+	/**
+	 * 친구를 friendTree에 그려넣음.
+	 * @param paretNode 
+	 * @param model2 
+	 * @param f
+	 */
+	private void addFriendToTreeView ( 
+			final DefaultTreeModel model, 
+			final MutableTreeNode parentNode, 
+			final Friend f) {
+		final DefaultMutableTreeNode node = new DefaultMutableTreeNode(f);
+		f.getName(true);
+		SwingUtilities.invokeLater(new Runnable() {
+			
+			@Override
+			public void run() {
+				model.insertNodeInto(node, parentNode, 0);
+				System.out.println(f);
+			}
+		});
+	}
 
 	private void showFriends(List<Friend> friends) {
 		
-//		DefaultTreeModel model = new DefaultTree
 		final DefaultTreeModel model = (DefaultTreeModel) friendsTree.getModel();
 		final MutableTreeNode rootNode = (MutableTreeNode) model.getRoot();
 		for ( final Friend f : friends ) {
-			f.getName(true); // initialize nickname and jid
-			final DefaultMutableTreeNode node = new DefaultMutableTreeNode(f);
-			SwingUtilities.invokeLater(new Runnable() {
-				
-				@Override
-				public void run() {
-					model.insertNodeInto(node, rootNode, 0);
-					System.out.println(f);
-					
-				}
-			});
+			addFriendToTreeView(model, rootNode, f);
 		}
 	}
 	
