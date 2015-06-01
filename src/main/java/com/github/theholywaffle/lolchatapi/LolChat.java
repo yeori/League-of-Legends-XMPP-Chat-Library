@@ -62,6 +62,7 @@ import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.Session;
 import org.jivesoftware.smack.tcp.XMPPTCPConnection;
 import org.jivesoftware.smack.util.PacketParserUtils.UnparsedResultIQ;
+import org.jivesoftware.smack.util.PacketParserUtils;
 import org.jivesoftware.smack.util.StringUtils;
 import org.jivesoftware.smackx.muc.InvitationListener;
 import org.jivesoftware.smackx.muc.MultiUserChat;
@@ -102,6 +103,9 @@ public class LolChat {
 	private final Presence.Type type = Presence.Type.available;
 	private Presence.Mode mode = Presence.Mode.chat;
 	private boolean invisible = false;
+	
+	
+	private final List<Friend> friends = new ArrayList<>();
 	
 	/**
 	 * full qualified jabberID
@@ -239,6 +243,7 @@ public class LolChat {
 	
 	private void installInitConnListener() {
 		InitialConnListener icl = new InitialConnListener();
+		IncomingPackets incoming = new IncomingPackets();
 		PacketFilter every = new PacketFilter() {
 			
 			@Override
@@ -248,7 +253,29 @@ public class LolChat {
 			}
 		};
 		connection.addPacketSendingListener(icl, every);
-		connection.addPacketListener(icl, every);
+		connection.addPacketListener(incoming, every);
+		
+	}
+	
+	class IncomingPackets implements PacketListener {
+
+		@Override
+		public void processPacket(Packet packet) throws NotConnectedException {
+			Class<?> packetClass = packet.getClass();
+			String cname = packet.getClass().getName();
+			cname = cname.substring(cname.lastIndexOf('.')+1);
+			logger.debug( String.format("<<[%s] %s",cname, packet.toXML()) );
+			if ( packetClass == Bind.class) {
+				Bind bnd = (Bind) packet;
+				if ( bnd.getType() == IQ.Type.RESULT){
+					logger.debug("    JID : " + bnd.getJid());
+					jabberID = bnd.getJid();
+				}
+			} else if ( packetClass == PacketParserUtils.UnparsedResultIQ.class) {
+				UnparsedResultIQ riq = (UnparsedResultIQ) packet;
+				logger.debug("   " +  riq.getChildElementXML() );
+			}
+		}
 		
 	}
 	
@@ -260,24 +287,21 @@ public class LolChat {
 			
 			if ( packetClass == Bind.class) {
 				Bind bnd = Bind.class.cast(packet);
-				logger.debug(String.format("[BIND] %s : %s", bnd.getType(), bnd.toXML().toString()));
-				if ( bnd.getType() == IQ.Type.RESULT){
-					logger.debug("JID : " + bnd.getJid());
-					jabberID = bnd.getJid();
-				}
+				logger.debug(String.format(">>[BIND] bind type: %s, xml: %s", bnd.getType(), bnd.toXML().toString()));
+				
 				
 			} else if ( packetClass == Session.class) {
 				Session iq = Session.class.cast(packet);
-				logger.debug("[SESSION] " + iq.toXML().toString());
+				logger.debug(">>[SESSION] " + iq.toXML().toString());
 				if ( iq.getType() == IQ.Type.RESULT){
-					logger.debug("SESSION : " + iq.getChildElementXML());
+					logger.debug(">>  SESSION : " + iq.getChildElementXML());
 				}
 			} else if ( packetClass == UnparsedResultIQ.class) {
 				UnparsedResultIQ uiq = UnparsedResultIQ.class.cast(packet);
 				if ( uiq.getType() == IQ.Type.RESULT){
 					String xml = uiq.getChildElementXML();
 					String name = xml.substring(0, xml.indexOf('<'));
-					logger.debug("SUMMONER NAME : " + name);
+					logger.debug(">>  SUMMONER NAME : " + name);
 					LolChat.this.name = name;
 //					connection.removePacketListener(this);
 //					connection.removePacketSendingListener(this);
@@ -285,7 +309,7 @@ public class LolChat {
 			}
 			
 			else {
-				logger.debug( String.format("[PACKET] %s", packet.toXML().toString()) );				
+				logger.debug( String.format(">>[PACKET] %s", packet.toXML().toString()) );				
 			}
 			
 		}
@@ -674,7 +698,6 @@ public class LolChat {
 	}
 
 	/**
-	 * FIXME 매번 새로운 Friend 인스턴스를 생성한다.
 	 * Gets a friend based on his XMPPAddress.
 	 * 
 	 * @param xmppAddress
@@ -683,7 +706,8 @@ public class LolChat {
 	 *         not a friend of you.
 	 */
 	public Friend getFriendById(String xmppAddress) {
-		Iterator<Friend> itr = leagueRosterListener.getFriends().iterator();
+		// finds a cached instance
+		Iterator<Friend> itr = friends.iterator();
 		Friend friend = null;
 		while ( itr.hasNext()) {
 			friend = itr.next();
@@ -695,14 +719,14 @@ public class LolChat {
 		// COMMENT 친구가 없으면 재조회 하는게 맞나?
 		//         프로그램 시작 시 서버에서 친구 목록을 전부 전송해주기 때문에
 		//         다시 조회해도 없을 가능성이 높음.
-		logger.debug(String.format("no such friend : %s. retry using riot api", 
-				xmppAddress));
+		logger.debug(String.format("New Friend(%s) instance [T:%s]", xmppAddress, Thread.currentThread().getName()));
 		final RosterEntry entry = connection.getRoster().getEntry(
 				StringUtils.parseBareAddress(xmppAddress));
 		if (entry == null) {
 			logger.debug(String.format("fail to find friend : %s", xmppAddress));
 		}
 		friend = new Friend(this, connection, entry);
+		friends.add(friend);
 		return friend;
 	}
 
@@ -794,9 +818,9 @@ public class LolChat {
 	 * @return A List of your Friends that meet the condition of your Filter
 	 */
 	public List<Friend> getFriends(Filter<Friend> filter) {
-		final ArrayList<Friend> friends = new ArrayList<>();
-		for (final RosterEntry e : connection.getRoster().getEntries()) {
-			final Friend f = new Friend(this, connection, e);
+		leagueRosterListener.waitForLoaded();
+		final List<Friend> friends = new ArrayList<>();
+		for (final Friend f : this.friends ) {
 			if (filter.accept(f)) {
 				friends.add(f);
 			}

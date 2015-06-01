@@ -27,10 +27,8 @@ package com.github.theholywaffle.lolchatapi;
  */
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 
 import org.jdom2.JDOMException;
 import org.jivesoftware.smack.RosterListener;
@@ -51,25 +49,22 @@ public class LeagueRosterListener implements RosterListener {
 	private final HashMap<String, Presence.Mode> modeUsers = new HashMap<>();
 	private final HashMap<String, LolStatus> statusUsers = new HashMap<>();
 	private final HashMap<String, FriendStatus> friendStatusUsers = new HashMap<>();
-	private final List<Friend> friends = new ArrayList<>();
-	
+		
 	private final LolChat api;
 
 	private boolean added;
 	private final XMPPConnection connection;
-
+	
 	public LeagueRosterListener(LolChat api, XMPPConnection connection) {
 		this.api = api;
 		this.connection = connection;
 	}
 
 	public void entriesAdded(Collection<String> e) {
+		Friend f;
 		for (final String jid : e) {
 			logger.debug(String.format("[ADDED ENTRY]%s", jid));
-			/*
-			 * 곧바로 가져오면 안되고, 없을때만 가져옴.
-			 */
-			Friend f = api.getFriendById(jid);
+			f = api.getFriendById(jid);
 			if (!added && !api.isLoaded()) {
 				if (f.isOnline()) {
 					typeUsers.put(jid, Presence.Type.available);
@@ -86,18 +81,12 @@ public class LeagueRosterListener implements RosterListener {
 			if (f.getFriendStatus() != FriendStatus.MUTUAL_FRIENDS) {
 				friendStatusUsers.put(jid, f.getFriendStatus());
 			}
-			
-			if ( friends.contains(f) ) {
-				friends.remove(f);
-			}
-			friends.add(f);
-			
 		}
-		added = true;
-	}
-	
-	public List<Friend> getFriends() {
-		return friends;
+		
+		synchronized (this) {
+			added = true;
+			this.notifyAll();
+		}
 	}
 
 	public void entriesDeleted(Collection<String> entries) {
@@ -120,8 +109,8 @@ public class LeagueRosterListener implements RosterListener {
 
 	public void entriesUpdated(Collection<String> e) {
 		for (final String s : e) {
-			logger.debug(String.format("[UPDATED ENTRY]%s", s));
 			final Friend f = api.getFriendById(s);
+			logger.debug(String.format("[UPDATED FRIEND]%s", f.toString()));
 			final FriendStatus previous = friendStatusUsers.get(s);
 			if (((previous != null && previous != FriendStatus.MUTUAL_FRIENDS)
 					|| previous == null || !api.isLoaded())
@@ -198,6 +187,25 @@ public class LeagueRosterListener implements RosterListener {
 				}
 			}
 		}
+	}
+
+	/**
+	 * makes caller thread wait while entries loaded 
+	 */
+	public void waitForLoaded() {
+		String tname = Thread.currentThread().getName();
+		synchronized (this) {
+			while ( !added ) {
+				logger.debug("wating for entry to be loaded... t: " + tname);				
+				try {
+					this.wait();
+				} catch (InterruptedException e) {
+					logger.debug("awakend by interrupt");
+				}
+			}
+			this.notifyAll();
+		}
+		logger.debug(String.format("all entries loaded. [t: %s]", tname));
 	}
 
 }
