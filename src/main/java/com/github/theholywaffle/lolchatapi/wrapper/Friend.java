@@ -109,8 +109,8 @@ public class Friend extends Wrapper<RosterEntry> implements ITalker {
     private RosterPacket.ItemType type;
     private RosterPacket.ItemStatus status;
 		 */
-		logger.debug(String.format("[NEW FRIEND] roster[name : %s, user : %s, type : %s, status : %s]",
-				entry.getName(), entry.getUser(), entry.getType(), entry.getStatus()) );
+		logger.debug(String.format("[NEW FRIEND] roster[name : %s, user : %s, type : %s, status : %s, t:%s]",
+				entry.getName(), entry.getUser(), entry.getType(), entry.getStatus(), Thread.currentThread().getName()) );
 	}
 
 	/**

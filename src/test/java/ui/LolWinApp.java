@@ -327,52 +327,47 @@ public class LolWinApp {
 			
 			@Override
 			public void onRemoveFriend(String userId, String name) {
-				// TODO Auto-generated method stub
-				
+				logger.debug("제거된 친구 :  " + name + ", id: " + userId);				
 			}
 			
 			@Override
 			public void onNewFriend(Friend friend) {
 				// TODO Auto-generated method stub
-				
+				logger.debug("새로운 친구 :  " + friend.toString());
 			}
 			
 			@Override
 			public void onFriendStatusChange(Friend friend) {
 				// TODO Auto-generated method stub
-				System.out.println("친구 상태 변경 : " + friend);
+				logger.debug("친구 상태 변경 : " + friend);
 			}
 			
 			@Override
 			public void onFriendLeave(Friend friend) {
 				// TODO Auto-generated method stub
-			System.out.println("나간 친구 : " + friend);
+				logger.debug("나간 친구 : " + friend);
 				friendsTree.repaint();
 			}
 			
 			@Override
 			public void onFriendJoin(Friend friend) {
-				// TODO Auto-generated method stub
-				System.out.println("들어온 친구 : " + friend);
+				logger.debug("들어온 친구 : " + friend);
 				friendsTree.repaint();
 			}
 			
 			@Override
 			public void onFriendBusy(Friend friend) {
-				// TODO Auto-generated method stub
 				logger.debug("[바쁨]" + friend);
 			}
 			
 			@Override
 			public void onFriendAway(Friend friend) {
-				// TODO Auto-generated method stub
-				
+				logger.debug("[AWAY]" + friend);
 			}
 			
 			@Override
 			public void onFriendAvailable(Friend friend) {
-				// TODO Auto-generated method stub
-				
+				logger.debug("[AVAILABLE]" + friend);
 			}
 		});
 		

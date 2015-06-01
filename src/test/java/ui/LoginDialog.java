@@ -190,7 +190,7 @@ public class LoginDialog extends JDialog {
 				}
 				
 			}
-		}).start();
+		}, "T-LOGIN").start();
 	}
 	
 	public static interface SubmitListener {
