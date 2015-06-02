@@ -45,9 +45,9 @@ import com.github.theholywaffle.lolchatapi.wrapper.Friend.FriendStatus;
 public class LeagueRosterListener implements RosterListener {
 	private Logger logger = LoggerFactory.getLogger(LeagueRosterListener.class);
 	
-	private final HashMap<String, Presence.Type> typeUsers = new HashMap<>();
-	private final HashMap<String, Presence.Mode> modeUsers = new HashMap<>();
-	private final HashMap<String, LolStatus> statusUsers = new HashMap<>();
+	private final HashMap<String, Presence.Type> typeMap = new HashMap<>();
+	private final HashMap<String, Presence.Mode> modeMap = new HashMap<>();
+	private final HashMap<String, LolStatus> lolStatusMap = new HashMap<>();
 	private final HashMap<String, FriendStatus> friendStatusUsers = new HashMap<>();
 		
 	private final LolChat api;
@@ -65,13 +65,17 @@ public class LeagueRosterListener implements RosterListener {
 		for (final String jid : e) {
 			logger.debug(String.format("[ADDED ENTRY]%s", jid));
 			f = api.getFriendById(jid);
+			if ( added ) {
+				onNewFriend(f);
+			}
+			
 			if (!added && !api.isLoaded()) {
 				if (f.isOnline()) {
-					typeUsers.put(jid, Presence.Type.available);
-					modeUsers.put(jid, f.getChatMode().mode);
-					statusUsers.put(jid, f.getStatus());
+					typeMap.put(jid, Presence.Type.available);
+					modeMap.put(jid, f.getChatMode().mode);
+					lolStatusMap.put(jid, f.getStatus());
 				} else {
-					typeUsers.put(jid, Presence.Type.unavailable);
+					typeMap.put(jid, Presence.Type.unavailable);
 				}
 			}
 			if (f.getGroup() == null) {
@@ -90,19 +94,17 @@ public class LeagueRosterListener implements RosterListener {
 	}
 
 	public void entriesDeleted(Collection<String> entries) {
-		for (final String s : entries) {
-			logger.debug(String.format("[DELETED ENTRY]%s", s));
-			friendStatusUsers.put(s, null);
+		for (final String jid : entries) {
+			logger.debug(String.format("[DELETED ENTRY]%s", jid));
+//			friendStatusUsers.put(s, null); /* delete해야 하는거 아닌지? */
+			friendStatusUsers.remove(jid);
 			for (final FriendListener l : api.getFriendListeners()) {
-				String name = null;
-				if (api.getRiotApi() != null) {
-					try {
-						name = api.getRiotApi().getName(s);
-					} catch (final IOException e) {
-						e.printStackTrace();
-					}
-				}
-				l.onRemoveFriend(s, name);
+				/* COMMENT roster entry와 friend가 삭제된 후에 호출되기 때문에
+				 * jid를 이용해서 굳이 또 name을 읽어들일 필요는 없을 듯.
+				 * 아래와같이 name은 empty string으로 대체함.
+				 * 
+				 */
+				l.onRemoveFriend(jid, "");
 			}
 		}
 	}
@@ -112,11 +114,11 @@ public class LeagueRosterListener implements RosterListener {
 			final Friend f = api.getFriendById(s);
 			logger.debug(String.format("[UPDATED FRIEND]%s", f.toString()));
 			final FriendStatus previous = friendStatusUsers.get(s);
-			if (((previous != null && previous != FriendStatus.MUTUAL_FRIENDS)
-					|| previous == null || !api.isLoaded())
-					&& f.getFriendStatus() == FriendStatus.MUTUAL_FRIENDS) {
-				onNewFriend(f);
-			}
+//			if (((previous != null && previous != FriendStatus.MUTUAL_FRIENDS)
+//					|| previous == null || !api.isLoaded())
+//					&& f.getFriendStatus() == FriendStatus.MUTUAL_FRIENDS) {
+//				onNewFriend(f);
+//			}
 			friendStatusUsers.put(s, f.getFriendStatus());
 		}
 	}
@@ -138,52 +140,52 @@ public class LeagueRosterListener implements RosterListener {
 			p = connection.getRoster().getPresence(p.getFrom());
 			from = StringUtils.parseBareAddress(from);
 			final Friend friend = api.getFriendById(from);
-			if (friend != null) {
-				for (final FriendListener l : api.getFriendListeners()) {
-					final Presence.Type previousType = typeUsers.get(from);
-					if (p.getType() == Presence.Type.available
-							&& (previousType == null || previousType != Presence.Type.available)) {
-						l.onFriendJoin(friend);
-					} else if (p.getType() == Presence.Type.unavailable
-							&& (previousType == null || previousType != Presence.Type.unavailable)) {
-						l.onFriendLeave(friend);
-					}
-
-					final Presence.Mode previousMode = modeUsers.get(from);
-					if (p.getMode() == Presence.Mode.chat
-							&& (previousMode == null || previousMode != Presence.Mode.chat)) {
-						l.onFriendAvailable(friend);
-					} else if (p.getMode() == Presence.Mode.away
-							&& (previousMode == null || previousMode != Presence.Mode.away)) {
-						l.onFriendAway(friend);
-					} else if (p.getMode() == Presence.Mode.dnd
-							&& (previousMode == null || previousMode != Presence.Mode.dnd)) {
-						l.onFriendBusy(friend);
-					}
-
-					if (p.getStatus() != null) {
-						try {
-							final LolStatus previousStatus = statusUsers
-									.get(from);
-							final LolStatus newStatus = new LolStatus(
-									p.getStatus());
-							if (previousStatus != null
-									&& !newStatus.equals(previousStatus)) {
-								l.onFriendStatusChange(friend);
-							}
-						} catch (JDOMException | IOException e) {
-						}
-					}
-
+			if (friend == null) {
+				return ;
+			}
+			for (final FriendListener l : api.getFriendListeners()) {
+				final Presence.Type previousType = typeMap.get(from);
+				if (p.getType() == Presence.Type.available
+						&& (previousType == null || previousType != Presence.Type.available)) {
+					l.onFriendJoin(friend);
+				} else if (p.getType() == Presence.Type.unavailable
+						&& (previousType == null || previousType != Presence.Type.unavailable)) {
+					l.onFriendLeave(friend);
 				}
 
-				typeUsers.put(from, p.getType());
-				modeUsers.put(from, p.getMode());
+				final Presence.Mode previousMode = modeMap.get(from);
+				if (p.getMode() == Presence.Mode.chat
+						&& (previousMode == null || previousMode != Presence.Mode.chat)) {
+					l.onFriendAvailable(friend);
+				} else if (p.getMode() == Presence.Mode.away
+						&& (previousMode == null || previousMode != Presence.Mode.away)) {
+					l.onFriendAway(friend);
+				} else if (p.getMode() == Presence.Mode.dnd
+						&& (previousMode == null || previousMode != Presence.Mode.dnd)) {
+					l.onFriendBusy(friend);
+				}
+
 				if (p.getStatus() != null) {
 					try {
-						statusUsers.put(from, new LolStatus(p.getStatus()));
+						final LolStatus previousStatus = lolStatusMap
+								.get(from);
+						final LolStatus newStatus = new LolStatus(
+								p.getStatus());
+						if (previousStatus != null
+								&& !newStatus.equals(previousStatus)) {
+							l.onFriendStatusChange(friend);
+						}
 					} catch (JDOMException | IOException e) {
 					}
+				}
+			}
+
+			typeMap.put(from, p.getType());
+			modeMap.put(from, p.getMode());
+			if (p.getStatus() != null) {
+				try {
+					lolStatusMap.put(from, new LolStatus(p.getStatus()));
+				} catch (JDOMException | IOException e) {
 				}
 			}
 		}

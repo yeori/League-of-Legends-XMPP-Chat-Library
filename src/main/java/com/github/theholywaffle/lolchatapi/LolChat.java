@@ -600,7 +600,7 @@ public class LolChat {
 	 *            The FriendGroup you want to put this user in.
 	 * @return True if succesful otherwise false.
 	 */
-	public boolean addFriendByName(String name, FriendGroup friendGroup) {
+	public boolean addFriendByName(String name, FriendGroup friendGroup) throws LolException{
 		if (getRiotApi() != null) {
 			try {
 				final StringBuilder buf = new StringBuilder();
@@ -609,12 +609,32 @@ public class LolChat {
 				buf.append("@pvp.net");
 				addFriendById(buf.toString(), name, friendGroup);
 				return true;
+			} catch ( RiotApiException e) {
+				int rsCode = e.getResponseCode();
+				throw new LolException("[" + rsCode + "] " + e.getMessage() + name, e);
 			} catch (IOException | URISyntaxException e) {
 				e.printStackTrace();
 				return false;
 			}
 		}
 		return false;
+	}
+	
+	public void removeFriend( Friend friend ) throws LolException{
+		Roster roster = connection.getRoster();
+		RosterEntry entry = roster.getEntry(friend.getUserId());
+		try {
+			roster.removeEntry(entry);
+			friends.remove(friend);
+		} catch (NotLoggedInException e) {
+			throw new LolException("LOGIN REQUIRED", e);
+		} catch (NoResponseException e) {
+			throw new LolException("NO RESPONSE FROM SERVER", e);
+		} catch (XMPPErrorException e) {
+			throw new LolException("XMPP Error", e);
+		} catch (NotConnectedException e) {
+			throw new LolException("CONNECTION PROBLEM", e);
+		}
 	}
 
 	/**
