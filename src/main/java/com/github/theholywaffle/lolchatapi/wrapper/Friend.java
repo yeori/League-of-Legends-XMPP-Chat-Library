@@ -348,6 +348,11 @@ public class Friend extends Wrapper<RosterEntry> implements ITalker {
 
 	@Override
 	public String toString() {
-		return String.format("[%s : %s(%s)]", getName(), getGroup().getName(), (isOnline()?"ON":"OFF") );
+		RosterEntry e = get();
+		return String.format("[%s(%s): item status: %s, roster type: %s]",
+				getName(), 
+				(isOnline()?"ON":"OFF"),
+				e.getStatus(),
+				e.getType());
 	}
 }
