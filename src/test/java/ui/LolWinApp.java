@@ -27,8 +27,6 @@ package ui;
  */
 
 
-import java.awt.Color;
-import java.awt.Component;
 import java.awt.EventQueue;
 
 import javax.swing.JFrame;
@@ -37,7 +35,6 @@ import javax.swing.JSplitPane;
 import java.awt.BorderLayout;
 
 import javax.swing.JDialog;
-import javax.swing.JLabel;
 import javax.swing.JScrollPane;
 import javax.swing.JTree;
 import javax.swing.SwingUtilities;
@@ -78,6 +75,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
 import ui.FriendRegisterDialog.NewFriendRequest;
+import ui.renderter.FriendTreeNodeRenderer;
 
 public class LolWinApp {
 	private Logger logger = LoggerFactory.getLogger(LolWinApp.class);
@@ -190,6 +188,7 @@ public class LolWinApp {
 		mntmRemovefriend = new JMenuItem("RemoveFriend");
 		mntmRemovefriend.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
+				processFriendRemoval();
 			}
 		});
 		mnFriends.add(mntmRemovefriend);
@@ -210,6 +209,19 @@ public class LolWinApp {
 		});
 	}
 	
+	private void processFriendRemoval() {
+		DefaultMutableTreeNode node = (DefaultMutableTreeNode) friendsTree
+				.getSelectionPath()
+				.getLastPathComponent();
+		Object userObj = node.getUserObject();
+		if ( userObj.getClass() != Friend.class) {
+			return ;
+		}
+		
+		Friend friend = (Friend) userObj ;
+		chatApi.removeFriend(friend);
+	}
+	
 	private void processDbClickedTreeNode(
 			DefaultMutableTreeNode dbClickedNode) {
 		if ( dbClickedNode.getUserObject() instanceof Friend ) {
@@ -225,7 +237,7 @@ public class LolWinApp {
 			chatPanel = createChatPanel(friend);
 		}
 		tabbedPane.setSelectedComponent(chatPanel);
-		chatPanel.printMessage ( friend, message);		
+		chatPanel.printMessage ( friend, message);
 	}
 	
 	private ChatPanel findOpenTab(JTabbedPane tabPane, String friendName) {
@@ -238,6 +250,32 @@ public class LolWinApp {
 			}
 		}
 		return null;
+	}
+	
+	private void addFriendNode ( Friend friend) {
+		final DefaultTreeModel model = (DefaultTreeModel) friendsTree.getModel();
+		final MutableTreeNode rootNode = (MutableTreeNode) model.getRoot();
+		addFriendToTreeView(model, rootNode, friend);
+		
+	}
+	
+	private DefaultMutableTreeNode findFriendNodeByJID ( String jid ) {
+		FriendTreeModel model = (FriendTreeModel) friendsTree.getModel();
+		DefaultMutableTreeNode root = (DefaultMutableTreeNode) model.getRoot();
+		int sz = root.getChildCount();
+		for ( int i = 0 ; i < sz ; i++) {
+			DefaultMutableTreeNode cNode = (DefaultMutableTreeNode) model.getChild(root, i);
+			Friend f = (Friend) cNode.getUserObject();
+			if ( f.getUserId().equals ( jid ) ) {
+				return cNode;
+			}
+		}
+		throw new RuntimeException ( "no such friend node : " + jid);
+	}
+	
+	private void removeTreeNode ( DefaultMutableTreeNode node) {
+		FriendTreeModel model = (FriendTreeModel) friendsTree.getModel();
+		model.removeNodeFromParent(node);
 	}
 
 	ChatPanel createChatPanel(Friend f) {
@@ -269,6 +307,7 @@ public class LolWinApp {
 					public boolean invitationReceived(LolChat chatApi, String roomName,
 							String inviter, String password) {
 						// TODO Auto-generated method stub
+						logger.debug(String.format("방 초대 요청 : %s by %s", roomName, inviter));
 						return false;
 					}
 					
@@ -327,13 +366,15 @@ public class LolWinApp {
 			
 			@Override
 			public void onRemoveFriend(String userId, String name) {
-				logger.debug("제거된 친구 :  " + name + ", id: " + userId);				
+				logger.debug("제거된 친구 :  " + name + ", id: " + userId);
+				DefaultMutableTreeNode node = findFriendNodeByJID ( userId ) ;
+				removeTreeNode ( node );
 			}
 			
 			@Override
 			public void onNewFriend(Friend friend) {
-				// TODO Auto-generated method stub
 				logger.debug("새로운 친구 :  " + friend.toString());
+				addFriendNode(friend);
 			}
 			
 			@Override
@@ -507,39 +548,5 @@ public class LolWinApp {
 		}
 		
 		
-	}
-	
-	static class FriendTreeNodeRenderer implements TreeCellRenderer {
-
-		final private JLabel templateLabel  =new JLabel();
-		public FriendTreeNodeRenderer() {
-			templateLabel.setOpaque(true);
-		}
-		@Override
-		public Component getTreeCellRendererComponent(JTree tree, Object value,
-				boolean selected, boolean expanded, boolean leaf, int row,
-				boolean hasFocus) {
-			DefaultMutableTreeNode node = DefaultMutableTreeNode.class.cast(value);
-			
-			if ( node.isRoot()){
-				templateLabel.setText(value.toString());
-				templateLabel.setForeground(Color.MAGENTA);
-			} else {				
-				Friend f = Friend.class.cast(node.getUserObject());
-				templateLabel.setText(String.format(
-						"[%3s] %s", 
-						f.isOnline()? "ON": "OFF" ,
-								f.getName())
-						);
-				
-				Color fg = f.isOnline() ? Color.BLACK : Color.LIGHT_GRAY ;
-				templateLabel.setForeground(fg);
-			}
-			
-			Color bg = selected ? Color.CYAN : Color.WHITE;
-			templateLabel.setBackground(bg);
-				
-			return templateLabel;
-		}
 	}
 }
