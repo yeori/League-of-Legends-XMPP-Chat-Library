@@ -1,6 +1,7 @@
 League of Legends XMPP Chat Library
 ===================================
 [![Build Status](https://travis-ci.org/yeori/League-of-Legends-XMPP-Chat-Library.svg?branch=dev)](https://travis-ci.org/yeori/League-of-Legends-XMPP-Chat-Library)
+
 A Java 7 XMPP library to chat and interact with the League of Legends chatservers. Built upon [Smack](http://www.igniterealtime.org/projects/smack/) and [JDOM](http://www.jdom.org/).
 
 ## Features
