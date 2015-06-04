@@ -1,7 +1,6 @@
 League of Legends XMPP Chat Library
 ===================================
-[![Build Status](https://travis-ci.org/TheHolyWaffle/League-of-Legends-XMPP-Chat-Library.svg)](https://travis-ci.org/TheHolyWaffle/League-of-Legends-XMPP-Chat-Library) [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.theholywaffle/lolchatapi/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.theholywaffle/lolchatapi) [![Dependency Status](http://www.versioneye.com/user/projects/5401aa7aeab62acbcb000056/badge.png)](http://www.versioneye.com/user/projects/5401aa7aeab62acbcb000056)
-
+[![Build Status](https://travis-ci.org/yeori/League-of-Legends-XMPP-Chat-Library.svg?branch=dev)](https://travis-ci.org/yeori/League-of-Legends-XMPP-Chat-Library)
 A Java 7 XMPP library to chat and interact with the League of Legends chatservers. Built upon [Smack](http://www.igniterealtime.org/projects/smack/) and [JDOM](http://www.jdom.org/).
 
 ## Features
@@ -81,4 +80,4 @@ if (api.login("myusername", "mypassword")) {
 Please let me know them [here](../../issues). I'll help you out as soon as I can.
 
 ___
-*“League of Legends XMPP Chat Library isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing League of Legends. League of Legends and Riot Games are trademarks or registered trademarks of Riot Games, Inc. League of Legends © Riot Games, Inc.”*
+*�쏬eague of Legends XMPP Chat Library isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing League of Legends. League of Legends and Riot Games are trademarks or registered trademarks of Riot Games, Inc. League of Legends 짤 Riot Games, Inc.��*
