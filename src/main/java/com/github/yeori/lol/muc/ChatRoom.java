@@ -66,15 +66,21 @@ public class ChatRoom {
 	private MultiUserChat mucSource;
 	final private ArrayList<MucListener> mucListeners = new ArrayList<>();
 	final private List<Talker> talkers = new ArrayList<>();
+	private boolean publicity;
 	
 	public ChatRoom(LolChat lol, MultiUserChat muc, String roomName) {
+		this( lol, muc, roomName, true);
+	}
+	
+	public ChatRoom(LolChat lol, MultiUserChat muc, String roomName,
+			boolean isPublic) {
 		this.lol = lol;
 		this.mucSource = muc;
 		this.roomName = roomName;
-		
+		this.publicity = isPublic;
 		installListeners();
 	}
-	
+
 	public String getRoomName() {
 		return roomName;
 	}
@@ -195,6 +201,7 @@ public class ChatRoom {
 		
 		synchronized (mucListeners) {			
 			cloned = new ArrayList<>(mucListeners);
+			cloned.addAll(lol.getMultiUserChatListener());
 		}
 		
 		for ( int i = 0 ; i < cloned.size() ; i++) {
@@ -219,9 +226,14 @@ public class ChatRoom {
 		List<MucListener> listeners ;
 		synchronized (mucListeners) {
 			listeners = new ArrayList<>(mucListeners);
+			listeners.addAll(lol.getMultiUserChatListener());
 		}
 		for( int i = 0 ; i < listeners.size() ; i++ ) {
-			listeners.get(i).onMucMessage(talker, body);
+			try {
+				listeners.get(i).onMucMessage(talker, body);				
+			} catch ( Exception e) {
+				logger.error(String.format("[MUC LISTENER ERROR]", listeners.get(i)));
+			}
 		}
 	}
 
@@ -234,6 +246,7 @@ public class ChatRoom {
 		
 		synchronized (mucListeners) {
 			cloned = new ArrayList<>(mucListeners);
+			cloned.addAll(lol.getMultiUserChatListener());
 		}
 		ChatMode chatMode  = ChatMode.AVAILABLE;
 		
@@ -262,6 +275,7 @@ public class ChatRoom {
 		
 		synchronized (mucListeners) {			
 			cloned = new ArrayList<>(mucListeners);
+			cloned.addAll(lol.getMultiUserChatListener());
 		}
 		
 		for ( int i = 0 ; i < cloned.size() ; i++) {
@@ -379,5 +393,17 @@ public class ChatRoom {
 	public String toString() {
 		return "ChatRoom [room:" + roomName + "] mucSource=" + mucSource
 				+ ", talkers=" + talkers + "]";
+	}
+	/**
+	 * 비공개 채팅방이면 true반환
+	 */
+	public boolean isPrive() {
+		return ! publicity;
+	}
+	/**
+	 * 공개 채팅방이면 true를 반환.
+	 */
+	public boolean isPublic() {
+		return publicity;
 	}
 }

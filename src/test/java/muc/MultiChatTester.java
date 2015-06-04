@@ -107,11 +107,11 @@ public class MultiChatTester {
 	static class MucHandler implements MucListener {
 
 		@Override
-		public boolean invitationReceived(LolChat chatApi, String roomName, String inviter,
+		public void invitationReceived(LolChat chatApi, String roomName, String inviter,
 				String password) {
 			logger.info(String.format("[INVITATION] room:%s, inviter:%s, password:%s", roomName, inviter, password));
 //			ChatRoom room = chatApi.prepareChatRoom(roomName);
-			return true;
+			chatApi.joinPrivateRoom(roomName);
 		}
 
 		@Override

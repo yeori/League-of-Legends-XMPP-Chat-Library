@@ -39,9 +39,8 @@ public interface MucListener {
 	 * @param roomName
 	 * @param inviter
 	 * @param password
-	 * @return 
 	 */
-	public boolean invitationReceived(LolChat chatApi, String roomName, String inviter, String password) ;
+	public void invitationReceived(LolChat chatApi, String roomName, String inviter, String password) ;
 
 	public void onMucMessage(Talker talker, String body);
 

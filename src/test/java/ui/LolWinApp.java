@@ -300,15 +300,13 @@ public class LolWinApp {
 					@Override
 					public void onMucMessage(Talker talker, String body) {
 						logger.debug("[MUC MESSAGE: {} ] {} ", talker.getNickName(), body );
-						
 					}
 					
 					@Override
-					public boolean invitationReceived(LolChat chatApi, String roomName,
+					public void invitationReceived(LolChat chatApi, String roomName,
 							String inviter, String password) {
 						// TODO Auto-generated method stub
 						logger.debug(String.format("방 초대 요청 : %s by %s", roomName, inviter));
-						return false;
 					}
 					
 					@Override
@@ -449,15 +447,13 @@ public class LolWinApp {
 			
 			@Override
 			public void onMucMessage(Talker talker, String body) {
-				// TODO Auto-generated method stub
-				
+				logger.debug(String.format("[%s at %s] %s", talker.getName(), talker.getRoom().getRoomName(), body));
 			}
 			
 			@Override
-			public boolean invitationReceived(LolChat chatApi, String roomName,
+			public void invitationReceived(LolChat chatApi, String roomName,
 					String inviter, String password) {
-				// TODO Auto-generated method stub
-				return false;
+				processInvitation( roomName);
 			}
 			
 			@Override
@@ -489,6 +485,10 @@ public class LolWinApp {
 		loginDialog.setVisible(true);
 	}
 	
+	private void processInvitation(String roomName) {
+		ChatRoom room = chatApi.joinPrivateRoom(roomName);
+	}
+
 	private void processLogin(String id, String pass) {
 		try {
 			this.chatApi.login(id, pass);

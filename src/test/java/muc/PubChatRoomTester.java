@@ -101,10 +101,9 @@ public class PubChatRoomTester {
 				}
 				
 				@Override
-				public boolean invitationReceived(LolChat chatApi, String roomName,
+				public void invitationReceived(LolChat chatApi, String roomName,
 						String inviter, String password) {
-					// TODO Auto-generated method stub
-					return false;
+					chatApi.joinPrivateRoom(roomName);
 				}
 				
 				@Override

@@ -273,7 +273,10 @@ public class LolChat {
 				}
 			} else if ( packetClass == PacketParserUtils.UnparsedResultIQ.class) {
 				UnparsedResultIQ riq = (UnparsedResultIQ) packet;
-				logger.debug("   " +  riq.getChildElementXML() );
+				String summonerName = riq.getChildElementXML(); // 뒤에 </summoner_name>이 붙어있음. 오류 아닌가?
+				summonerName = summonerName.substring(0, summonerName.indexOf("</summoner_name>"));
+				LolChat.this.name = summonerName;
+				logger.debug("   [내 닉네임] " +  summonerName );
 			}
 		}
 		
@@ -448,15 +451,7 @@ public class LolChat {
 			
 			for( MucListener mL : cloned) {
 				try {
-					boolean acceptInvt = mL.invitationReceived(chatApi, room, inviter, password);	
-					if ( acceptInvt) {
-						MultiUserChat muc = new MultiUserChat(conn, room);
-						muc.addMessageListener(this);
-						muc.join(chatApi.getName(true));
-						Message msg = muc.createMessage();
-						msg.setBody("JOIN TO THE CHAT ROOM");
-						muc.sendMessage(msg);
-					}
+					mL.invitationReceived(chatApi, room, inviter, password);	
 				} catch (Exception e) {
 					logger.error("unexpected exception", e);
 				}
@@ -494,6 +489,10 @@ public class LolChat {
 	 */
 	public void addMultiUserChatListener ( MucListener mucListener) {
 		mucChatListeners.add(mucListener);
+	}
+	
+	public List<MucListener> getMultiUserChatListener ( ) {
+		return mucChatListeners;
 	}
 
 	/**
@@ -744,6 +743,7 @@ public class LolChat {
 				StringUtils.parseBareAddress(xmppAddress));
 		if (entry == null) {
 			logger.debug(String.format("fail to find friend : %s", xmppAddress));
+			return null;
 		}
 		friend = new Friend(this, connection, entry);
 		friends.add(friend);
@@ -1164,7 +1164,7 @@ public class LolChat {
 	}
 	
 	public ChatRoom joinPublicRoom(String roomName, MucListener mucListener) {
-		ChatRoom chatRoom = joinRoom(roomName, mucListener);
+		ChatRoom chatRoom = joinRoom(roomName, mucListener, roomNaming, true);
 		return chatRoom;
 	}
 	
@@ -1172,18 +1172,18 @@ public class LolChat {
 	 * 
 	 * @param roomId - full qualified jabberID of a chat room
 	 */
-	ChatRoom joinRoom(final String roomName) throws MucException{
-		return joinRoom(roomName, null);
+	ChatRoom joinRoom(final String roomName, IRoomNaming roonNaming, boolean isPublic) throws MucException{
+		return joinRoom(roomName, null, roonNaming, isPublic);
 	}
 	
-	ChatRoom joinRoom(final String roomName, MucListener listener) throws MucException{
+	ChatRoom joinRoom(final String roomName, MucListener listener, IRoomNaming roomNaming, boolean isPublic) throws MucException{
 		final String roomId = roomNaming.translate(roomName);
-		logger.debug(String.format("[ROOM NAME] %s => %s", roomName, roomId));
+		logger.debug(String.format("[ROOM NAME] %s => %s with nickname: %s", roomName, roomId, name));
 		XMPPConnection conn = getConnection();
 		MultiUserChat muc = new MultiUserChat(conn, roomId);
 		
 		try {
-			ChatRoom room = new ChatRoom(this, muc, roomName);
+			ChatRoom room = new ChatRoom(this, muc, roomName, isPublic);
 			if ( listener != null ){
 				room.addMucListener(listener);
 			}
@@ -1200,16 +1200,26 @@ public class LolChat {
 			throw new MucException("not connected.", e);
 		}
 	}
-//	/**
-//	 * 
-//	 * @param roomName
-//	 * @return
-//	 */
-//	public ChatRoom prepareChatRoom(String roomName) {
-//		MultiUserChat muc = new MultiUserChat(connection, roomName);
-//		ChatRoom room = new ChatRoom(muc);
-//		return null;
-//	}
+	
+	/**
+	 * 비공개 채팅방에 참여함.
+	 */
+	public ChatRoom joinPrivateRoom ( final String roomName) {
+		ChatRoom privRoom = joinRoom(roomName, null, new PrivRoomNaming(), false);
+		return privRoom;
+	}
+	
+	/*
+	 * 비공개 채팅방 초대를 받았을때 
+	 * 이미 SHA-1 방식으로 encoding된 room name이 전달되므로
+	 * 또다시 room name을 encoding할 필요가 없다.
+	 */
+	private static class PrivRoomNaming implements IRoomNaming {
 
-
+		@Override
+		public String translate(String plainText) {
+			return plainText;
+		}
+		
+	}
 }
