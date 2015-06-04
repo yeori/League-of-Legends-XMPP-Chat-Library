@@ -489,7 +489,13 @@ public class LolWinApp {
 		} 
 		
 		System.out.println("참여");
-		
+		GroupChatPanel panel = gcManager.findByIdRoomName ( roomName );
+		if ( panel != null ) {
+			// existing room
+			logger.debug( "existing room: " + roomName);
+			tabbedPane.setSelectedComponent(panel);
+			return ;
+		}
 		ChatRoom room = chatApi.joinPrivateRoom(roomName);
 		GroupChatPanel groupPanel = createGroupChatPanel(room);
 		groupPanel.setChatRoom(room);
@@ -513,6 +519,10 @@ public class LolWinApp {
 			gcMap = new HashMap<>();
 		}
 		
+		public GroupChatPanel findByIdRoomName(String roomName) {
+			return gcMap.get(roomName);
+		}
+
 		void addPanel (ChatRoom room, GroupChatPanel comp) {
 			gcMap.put(room.getRoomName(), comp);
 		}
