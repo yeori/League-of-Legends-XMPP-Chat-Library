@@ -35,9 +35,8 @@ import javax.swing.JSplitPane;
 import java.awt.BorderLayout;
 
 import javax.swing.JDialog;
+import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
-import javax.swing.JTree;
-import javax.swing.SwingUtilities;
 
 import com.github.theholywaffle.lolchatapi.ChatMode;
 import com.github.theholywaffle.lolchatapi.ChatServer;
@@ -56,6 +55,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -63,10 +63,6 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.MutableTreeNode;
-import javax.swing.tree.TreeCellRenderer;
-import javax.swing.tree.TreeNode;
 import javax.swing.tree.TreePath;
 import javax.swing.JTabbedPane;
 
@@ -80,10 +76,12 @@ import ui.renderter.FriendTreeNodeRenderer;
 public class LolWinApp {
 	private Logger logger = LoggerFactory.getLogger(LolWinApp.class);
 	private JFrame frame;
-	private JTree friendsTree;
-	final private TreeCellRenderer treeCellRenderer = new FriendTreeNodeRenderer();
-
+//	private JTree friendsTree;
+	private TalkerTree<Friend> friendsTree;
+	
 	private LolChat chatApi ;
+	private GroupChatManager gcManager = new GroupChatManager();
+	
 	/**
 	 * Launch the application.
 	 */
@@ -142,8 +140,8 @@ public class LolWinApp {
 		frame.getContentPane().add(splitPane, BorderLayout.CENTER);
 		JScrollPane scrollPane = new JScrollPane();
 		splitPane.setLeftComponent(scrollPane);
-		friendsTree = new JTree(new FriendTreeModel());
-		friendsTree.setCellRenderer(treeCellRenderer);
+		friendsTree = new TalkerTree<Friend>();
+		friendsTree.setCellRenderer(new FriendTreeNodeRenderer());
 		scrollPane.setViewportView(friendsTree);
 		
 		tabbedPane = new JTabbedPane(JTabbedPane.TOP);
@@ -252,32 +250,6 @@ public class LolWinApp {
 		return null;
 	}
 	
-	private void addFriendNode ( Friend friend) {
-		final DefaultTreeModel model = (DefaultTreeModel) friendsTree.getModel();
-		final MutableTreeNode rootNode = (MutableTreeNode) model.getRoot();
-		addFriendToTreeView(model, rootNode, friend);
-		
-	}
-	
-	private DefaultMutableTreeNode findFriendNodeByJID ( String jid ) {
-		FriendTreeModel model = (FriendTreeModel) friendsTree.getModel();
-		DefaultMutableTreeNode root = (DefaultMutableTreeNode) model.getRoot();
-		int sz = root.getChildCount();
-		for ( int i = 0 ; i < sz ; i++) {
-			DefaultMutableTreeNode cNode = (DefaultMutableTreeNode) model.getChild(root, i);
-			Friend f = (Friend) cNode.getUserObject();
-			if ( f.getUserId().equals ( jid ) ) {
-				return cNode;
-			}
-		}
-		throw new RuntimeException ( "no such friend node : " + jid);
-	}
-	
-	private void removeTreeNode ( DefaultMutableTreeNode node) {
-		FriendTreeModel model = (FriendTreeModel) friendsTree.getModel();
-		model.removeNodeFromParent(node);
-	}
-
 	ChatPanel createChatPanel(Friend f) {
 		ChatPanel cp = new ChatPanel(f);
 		cp.setName(f.getName());
@@ -287,6 +259,20 @@ public class LolWinApp {
 		logger.debug("creating new tab for chat with {}", f.getUserId());
 		return cp;
 		
+	}
+	
+	GroupChatPanel createGroupChatPanel( ChatRoom room ) {
+		GroupChatPanel gcp = new GroupChatPanel();
+		gcp.setChatRoom(room);
+		gcp.setName(room.getRoomName());
+		
+		tabbedPane.add("[GROUP CHAT]", gcp);
+		tabbedPane.setSelectedComponent(gcp);
+		tabbedPane.setName(room.getRoomName());
+		logger.debug("creating new tab for GROUP CHAT", room.getRoomName());
+		
+		gcManager.addPanel(room, gcp);
+		return gcp;
 	}
 	
 	private void showMucJoinDialog() {
@@ -311,7 +297,9 @@ public class LolWinApp {
 					
 					@Override
 					public void newTalkerEntered(ChatRoom chatRoom, Talker newTalker) {
-						logger.debug("구현 안됐음");
+						GroupChatPanel gcPanel = (GroupChatPanel) gcManager.getTabPanel(chatRoom);
+						gcPanel.addTalker ( newTalker );
+						
 					}
 					
 					@Override
@@ -365,14 +353,15 @@ public class LolWinApp {
 			@Override
 			public void onRemoveFriend(String userId, String name) {
 				logger.debug("제거된 친구 :  " + name + ", id: " + userId);
-				DefaultMutableTreeNode node = findFriendNodeByJID ( userId ) ;
-				removeTreeNode ( node );
+				DefaultMutableTreeNode node = friendsTree.findFriendNodeByJID ( userId ) ;
+				friendsTree.removeTreeNode ( node );
+				
 			}
 			
 			@Override
 			public void onNewFriend(Friend friend) {
 				logger.debug("새로운 친구 :  " + friend.toString());
-				addFriendNode(friend);
+				friendsTree.addTalkerNode(friend);
 			}
 			
 			@Override
@@ -447,18 +436,23 @@ public class LolWinApp {
 			
 			@Override
 			public void onMucMessage(Talker talker, String body) {
+				ChatRoom room = talker.getRoom();
+				GroupChatPanel gcp = gcManager.getTabPanel(room);
 				logger.debug(String.format("[%s at %s] %s", talker.getName(), talker.getRoom().getRoomName(), body));
+				gcp.addMessage ( talker, body );
 			}
 			
 			@Override
 			public void invitationReceived(LolChat chatApi, String roomName,
 					String inviter, String password) {
-				processInvitation( roomName);
+				processInvitation( roomName, inviter);
 			}
 			
 			@Override
 			public void newTalkerEntered(ChatRoom chatRoom, Talker newTalker) {
-				logger.debug("구현 안됐음");
+				logger.debug( String.format("[%s] " + newTalker, chatRoom.getRoomName() ));
+				GroupChatPanel gcPanel = (GroupChatPanel) gcManager.getTabPanel(chatRoom);
+				gcPanel.addTalker ( newTalker );
 			}
 			
 			@Override
@@ -470,6 +464,8 @@ public class LolWinApp {
 			@Override
 			public void talkerLeaved(ChatRoom chatRoom, Talker talker) {
 				logger.debug("나간 사용자 : " + talker);
+				GroupChatPanel gcPanel = (GroupChatPanel) gcManager.getTabPanel(chatRoom);
+				gcPanel.removeTalker ( talker );
 			}
 		});
 		
@@ -485,8 +481,18 @@ public class LolWinApp {
 		loginDialog.setVisible(true);
 	}
 	
-	private void processInvitation(String roomName) {
+	private void processInvitation(String roomName, String inviter) {
+		String message = String.format("%s님이 비공개채팅방으로 초대함. 참여할래?", inviter);
+		int result = JOptionPane.showConfirmDialog(this.frame, message, "초대", JOptionPane.YES_NO_OPTION);
+		if ( result == JOptionPane.NO_OPTION) {
+			return ;
+		} 
+		
+		System.out.println("참여");
+		
 		ChatRoom room = chatApi.joinPrivateRoom(roomName);
+		GroupChatPanel groupPanel = createGroupChatPanel(room);
+		groupPanel.setChatRoom(room);
 	}
 
 	private void processLogin(String id, String pass) {
@@ -494,59 +500,26 @@ public class LolWinApp {
 			this.chatApi.login(id, pass);
 			System.out.println("로그인 성공");
 			List<Friend> friends = this.chatApi.getFriends();
-			showFriends( friends) ;
+			friendsTree.showTalkers( friends) ;
 		} catch( Exception e) {
 			e.getCause().printStackTrace();
 		}
 	}
 	
-	/**
-	 * 친구를 friendTree에 그려넣음.
-	 * @param paretNode 
-	 * @param model2 
-	 * @param f
-	 */
-	private void addFriendToTreeView ( 
-			final DefaultTreeModel model, 
-			final MutableTreeNode parentNode, 
-			final Friend f) {
-		final DefaultMutableTreeNode node = new DefaultMutableTreeNode(f);
-		f.getName(true);
-		SwingUtilities.invokeLater(new Runnable() {
-			
-			@Override
-			public void run() {
-				model.insertNodeInto(node, parentNode, 0);
-				System.out.println(f);
-			}
-		});
-	}
-
-	private void showFriends(List<Friend> friends) {
+	static class GroupChatManager {
+		Map<String, GroupChatPanel> gcMap;
 		
-		final DefaultTreeModel model = (DefaultTreeModel) friendsTree.getModel();
-		final MutableTreeNode rootNode = (MutableTreeNode) model.getRoot();
-		for ( final Friend f : friends ) {
-			addFriendToTreeView(model, rootNode, f);
-		}
-	}
-	
-	static class FriendTreeModel extends DefaultTreeModel {
-		
-		public FriendTreeModel() {
-			this( null, true);
-		}
-		public FriendTreeModel(TreeNode root) {
-			this(root, true);
-		}
-
-		FriendTreeModel(TreeNode root, boolean asksAllowsChildren) {
-			super(root, asksAllowsChildren);
-			if ( root == null ) {
-				setRoot(new DefaultMutableTreeNode("FRIENDS"));
-			}
+		public GroupChatManager() {
+			gcMap = new HashMap<>();
 		}
 		
+		void addPanel (ChatRoom room, GroupChatPanel comp) {
+			gcMap.put(room.getRoomName(), comp);
+		}
+		
+		GroupChatPanel getTabPanel ( ChatRoom room ) {
+			return gcMap.get(room.getRoomName());
+		}
 		
 	}
 }
